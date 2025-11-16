@@ -34,14 +34,17 @@ class ManualPriorityRecordForAdmin(BaseModel):
     identifier: str
     month: str
     prioritiesEncryptedFields: str
+    priorityId: str  # PocketBase priority record ID for deletion
 
 
 class UserPriorityRecordForAdmin(BaseModel):
     adminWrappedDek: str
     userName: str
+    userId: str  # PocketBase user ID
     month: str
     userEncryptedFields: str
     prioritiesEncryptedFields: str
+    priorityId: str  # PocketBase priority record ID for deletion
 
 
 class ReminderRequest(BaseModel):
@@ -62,3 +65,17 @@ class ManualPriorityRequest(BaseModel):
     identifier: str  # participant number, initials, etc.
     month: str  # YYYY-MM format
     weeks: list[WeekPriority]
+
+
+class UpdateUserRequest(BaseModel):
+    """Request model for updating user details"""
+
+    username: str | None = None
+    email: str | None = None
+    role: str | None = None
+
+
+class UpdatePriorityRequest(BaseModel):
+    """Request model for updating a priority record"""
+
+    encrypted_fields: str  # Re-encrypted priority data from admin

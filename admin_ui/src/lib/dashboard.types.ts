@@ -2,9 +2,11 @@
 export interface UserPriorityRecord {
 	adminWrappedDek: string;
 	userName: string;
+	userId: string; // PocketBase user ID
 	month: string;
 	userEncryptedFields: string;
 	prioritiesEncryptedFields: string;
+	priorityId: string; // PocketBase priority record ID for deletion
 }
 
 // Extended type for UI display with computed properties
@@ -19,6 +21,8 @@ export interface UserSubmissionDisplay extends UserPriorityRecord {
 export interface UserDisplay {
 	id: number;
 	name: string;
+	userId?: string; // PocketBase user ID (only for regular users, not manual entries)
+	priorityId?: string; // PocketBase priority record ID
 	submitted: boolean;
 	encrypted: boolean;
 	hasData: boolean;

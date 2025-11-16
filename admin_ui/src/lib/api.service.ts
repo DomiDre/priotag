@@ -182,6 +182,56 @@ export class ApiService {
 		});
 	}
 
+	async deleteManualEntry(month: string, identifier: string) {
+		return this.requestJson(`/admin/manual-entry/${month}/${identifier}`, {
+			method: 'DELETE'
+		});
+	}
+
+	// ==================== User Management ====================
+
+	async getUserDetail(userId: string) {
+		return this.requestJson(`/admin/users/detail/${userId}`, {
+			method: 'GET'
+		});
+	}
+
+	async updateUser(
+		userId: string,
+		data: { username?: string; email?: string; role?: string }
+	): Promise<{ success: boolean; message: string }> {
+		return this.requestJson(`/admin/users/${userId}`, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		});
+	}
+
+	async deleteUser(
+		userId: string
+	): Promise<{ success: boolean; message: string; deletedPriorities: number }> {
+		return this.requestJson(`/admin/users/${userId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	// ==================== Priority Management ====================
+
+	async updatePriority(
+		priorityId: string,
+		encryptedFields: string
+	): Promise<{ success: boolean; message: string }> {
+		return this.requestJson(`/admin/priorities/${priorityId}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ encrypted_fields: encryptedFields })
+		});
+	}
+
+	async deletePriority(priorityId: string): Promise<{ success: boolean; message: string }> {
+		return this.requestJson(`/admin/priorities/${priorityId}`, {
+			method: 'DELETE'
+		});
+	}
+
 	// ==================== Vacation Days ====================
 
 	async createVacationDay(data: VacationDayCreate): Promise<VacationDayAdmin> {

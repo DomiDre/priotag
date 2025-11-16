@@ -15,6 +15,8 @@
 	import VacationDayModal from '$lib/components/VacationDayModal.svelte';
 	import ErrorDisplay from '$lib/components/ErrorDisplay.svelte';
 	import LoadingIndicator from '$lib/components/LoadingIndicator.svelte';
+	import UserEditModal from '$lib/components/UserEditModal.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import type { DecryptedData, UserDisplay } from '$lib/dashboard.types';
 	import { dayKeys } from '$lib/priorities.config';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -48,6 +50,14 @@
 	let authMode: 'file' | 'webauthn' | null = $state(null);
 	let showSuccessToast = $state(false);
 	let successMessage = $state('');
+
+	// User/Priority management modals
+	let showUserEditModal = $state(false);
+	let editingUser: UserDisplay | null = $state(null);
+	let showDeleteUserConfirm = $state(false);
+	let deletingUser: UserDisplay | null = $state(null);
+	let showDeletePriorityConfirm = $state(false);
+	let deletingPriority: UserDisplay | null = $state(null);
 
 	// Entschlüsselungszustand
 	let isDecrypting = $state(false);
@@ -162,6 +172,8 @@
 			const regularUsers = userSubmissions.map((submission: any, index: number) => ({
 				id: index + 1,
 				name: submission.userName,
+				userId: submission.userId,
+				priorityId: submission.priorityId,
 				submitted: true,
 				encrypted: true,
 				hasData: !!submission.prioritiesEncryptedFields,
@@ -175,6 +187,8 @@
 			const manualUsers = manualEntriesData.map((entry: any, index: number) => ({
 				id: regularUsers.length + index + 1,
 				name: `Manuell: ${entry.identifier.substring(0, 8)}`,
+				userId: undefined,
+				priorityId: entry.priorityId,
 				submitted: true,
 				encrypted: true,
 				hasData: !!entry.prioritiesEncryptedFields,
@@ -493,6 +507,90 @@
 		}, 3000);
 	}
 
+	// User management handlers
+	function openEditUser(user: UserDisplay) {
+		editingUser = user;
+		showUserEditModal = true;
+	}
+
+	function closeEditUser() {
+		showUserEditModal = false;
+		editingUser = null;
+	}
+
+	async function handleUserEditSuccess() {
+		await fetchUserSubmissions();
+		successMessage = 'Benutzer erfolgreich aktualisiert!';
+		showSuccessToast = true;
+		setTimeout(() => {
+			showSuccessToast = false;
+		}, 3000);
+	}
+
+	function openDeleteUser(user: UserDisplay) {
+		deletingUser = user;
+		showDeleteUserConfirm = true;
+	}
+
+	function closeDeleteUser() {
+		showDeleteUserConfirm = false;
+		deletingUser = null;
+	}
+
+	async function confirmDeleteUser() {
+		if (!deletingUser?.userId) return;
+
+		try {
+			const result = await apiService.deleteUser(deletingUser.userId);
+			await fetchUserSubmissions();
+			await fetchTotalUsers();
+			successMessage = result.message;
+			showSuccessToast = true;
+			setTimeout(() => {
+				showSuccessToast = false;
+			}, 3000);
+			closeDeleteUser();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Fehler beim Löschen des Benutzers';
+			closeDeleteUser();
+		}
+	}
+
+	// Priority management handlers
+	function openDeletePriority(user: UserDisplay) {
+		deletingPriority = user;
+		showDeletePriorityConfirm = true;
+	}
+
+	function closeDeletePriority() {
+		showDeletePriorityConfirm = false;
+		deletingPriority = null;
+	}
+
+	async function confirmDeletePriority() {
+		if (!deletingPriority?.priorityId) return;
+
+		try {
+			const result = await apiService.deletePriority(deletingPriority.priorityId);
+			await fetchUserSubmissions();
+
+			// Remove from decrypted users cache if present
+			if (deletingPriority.name) {
+				decryptedUsers.delete(deletingPriority.name);
+			}
+
+			successMessage = result.message;
+			showSuccessToast = true;
+			setTimeout(() => {
+				showSuccessToast = false;
+			}, 3000);
+			closeDeletePriority();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Fehler beim Löschen der Priorität';
+			closeDeletePriority();
+		}
+	}
+
 	async function handleRefresh() {
 		if (isRefreshing || isLoading) return;
 
@@ -690,6 +788,9 @@
 						onSearchChange={(value) => (searchQuery = value)}
 						onViewUser={viewUserData}
 						onManualEntry={openManualEntry}
+						onEditUser={openEditUser}
+						onDeleteUser={openDeleteUser}
+						onDeletePriority={openDeletePriority}
 					/>
 				</div>
 
@@ -740,6 +841,39 @@
 		{vacationDays}
 	/>
 {/if}
+
+<!-- User Edit Modal -->
+<UserEditModal
+	bind:isOpen={showUserEditModal}
+	userId={editingUser?.userId || null}
+	userName={editingUser?.name || ''}
+	onClose={closeEditUser}
+	onSuccess={handleUserEditSuccess}
+/>
+
+<!-- Delete User Confirmation -->
+<ConfirmDialog
+	bind:isOpen={showDeleteUserConfirm}
+	title="Benutzer löschen"
+	message="Möchten Sie den Benutzer '{deletingUser?.name}' wirklich löschen? Dies wird auch alle zugehörigen Prioritätsdaten unwiderruflich entfernen."
+	confirmText="Benutzer löschen"
+	cancelText="Abbrechen"
+	variant="danger"
+	onConfirm={confirmDeleteUser}
+	onCancel={closeDeleteUser}
+/>
+
+<!-- Delete Priority Confirmation -->
+<ConfirmDialog
+	bind:isOpen={showDeletePriorityConfirm}
+	title="Prioritäten löschen"
+	message="Möchten Sie die Prioritätsdaten für '{deletingPriority?.name}' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+	confirmText="Prioritäten löschen"
+	cancelText="Abbrechen"
+	variant="warning"
+	onConfirm={confirmDeletePriority}
+	onCancel={closeDeletePriority}
+/>
 
 <!-- Erfolgsbenachrichtigung (Toast) -->
 {#if showSuccessToast}

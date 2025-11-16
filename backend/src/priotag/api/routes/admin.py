@@ -8,6 +8,8 @@ from priotag.models.admin import (
     ManualPriorityRecordForAdmin,
     ManualPriorityRequest,
     UpdateMagicWordRequest,
+    UpdatePriorityRequest,
+    UpdateUserRequest,
     UserPriorityRecordForAdmin,
 )
 from priotag.models.auth import SessionInfo
@@ -200,9 +202,11 @@ async def get_user_submissions(
                 UserPriorityRecordForAdmin(
                     adminWrappedDek=user.admin_wrapped_dek,
                     userName=user.username,
+                    userId=user.id,
                     month=priority.month,
                     userEncryptedFields=user.encrypted_fields,
                     prioritiesEncryptedFields=priority.encrypted_fields,
+                    priorityId=priority.id,
                 )
             )
 
@@ -463,6 +467,7 @@ async def get_manual_entries(
                     identifier=priority.identifier,
                     month=priority.month,
                     prioritiesEncryptedFields=priority.encrypted_fields,
+                    priorityId=priority.id,
                 )
             )
 
@@ -519,4 +524,260 @@ async def delete_manual_entry(
         return {
             "success": True,
             "message": f"Manueller Eintrag gelöscht (Kennung: {identifier})",
+        }
+
+
+@router.get("/users/detail/{user_id}")
+async def get_user_detail(
+    user_id: str,
+    token: str = Depends(get_current_token),
+    _=Depends(require_admin),
+):
+    """
+    Get detailed user information by user ID.
+    Returns encrypted user data that must be decrypted client-side.
+    """
+    async with httpx.AsyncClient() as client:
+        user_response = await client.get(
+            f"{POCKETBASE_URL}/api/collections/users/records/{user_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if user_response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="Benutzer nicht gefunden",
+            )
+
+        if user_response.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail="Fehler beim Abrufen des Benutzers",
+            )
+
+        user_data = user_response.json()
+        user = UsersResponse(**user_data)
+
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "admin_wrapped_dek": user.admin_wrapped_dek,
+            "encrypted_fields": user.encrypted_fields,
+            "created": user.created,
+            "updated": user.updated,
+            "lastSeen": user.lastSeen,
+        }
+
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: str,
+    request: UpdateUserRequest,
+    token: str = Depends(get_current_token),
+    _=Depends(require_admin),
+):
+    """
+    Update user details (username, email, role).
+    Note: This only updates basic fields. Encrypted data cannot be modified here.
+    """
+    async with httpx.AsyncClient() as client:
+        # Build update payload with only provided fields
+        update_data = {}
+        if request.username is not None:
+            update_data["username"] = request.username
+        if request.email is not None:
+            update_data["email"] = request.email
+        if request.role is not None:
+            if request.role not in ["user", "service", "admin", "generic"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Ungültige Rolle. Erlaubte Werte: user, service, admin, generic",
+                )
+            update_data["role"] = request.role
+
+        if not update_data:
+            raise HTTPException(
+                status_code=422,
+                detail="Keine Aktualisierungsdaten bereitgestellt",
+            )
+
+        response = await client.patch(
+            f"{POCKETBASE_URL}/api/collections/users/records/{user_id}",
+            json=update_data,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="Benutzer nicht gefunden",
+            )
+
+        if response.status_code != 200:
+            error_data = response.json()
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=error_data.get("message", "Fehler beim Aktualisieren des Benutzers"),
+            )
+
+        return {
+            "success": True,
+            "message": f"Benutzer '{request.username or user_id}' erfolgreich aktualisiert",
+        }
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    token: str = Depends(get_current_token),
+    _=Depends(require_admin),
+):
+    """
+    Delete a user and all their associated priority records.
+    This is a cascading delete operation.
+    """
+    async with httpx.AsyncClient() as client:
+        # First, get the user to verify they exist and get username for response
+        user_response = await client.get(
+            f"{POCKETBASE_URL}/api/collections/users/records/{user_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if user_response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="Benutzer nicht gefunden",
+            )
+
+        if user_response.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail="Fehler beim Abrufen des Benutzers",
+            )
+
+        user_data = user_response.json()
+        username = user_data.get("username", user_id)
+
+        # Delete all priorities associated with this user
+        priorities_response = await client.get(
+            f"{POCKETBASE_URL}/api/collections/priorities/records",
+            params={"filter": f'userId="{user_id}"', "perPage": 500},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        deleted_priorities = 0
+        if priorities_response.status_code == 200:
+            priorities = priorities_response.json().get("items", [])
+            for priority in priorities:
+                delete_priority_response = await client.delete(
+                    f"{POCKETBASE_URL}/api/collections/priorities/records/{priority['id']}",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                if delete_priority_response.status_code in [200, 204]:
+                    deleted_priorities += 1
+
+        # Delete the user
+        delete_response = await client.delete(
+            f"{POCKETBASE_URL}/api/collections/users/records/{user_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if delete_response.status_code not in [200, 204]:
+            raise HTTPException(
+                status_code=delete_response.status_code,
+                detail="Fehler beim Löschen des Benutzers",
+            )
+
+        return {
+            "success": True,
+            "message": f"Benutzer '{username}' und {deleted_priorities} zugehörige Prioritäten gelöscht",
+            "deletedPriorities": deleted_priorities,
+        }
+
+
+@router.patch("/priorities/{priority_id}")
+async def update_priority(
+    priority_id: str,
+    request: UpdatePriorityRequest,
+    token: str = Depends(get_current_token),
+    _=Depends(require_admin),
+):
+    """
+    Update a priority record's encrypted fields.
+    The client must decrypt, modify, and re-encrypt the data before sending.
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.patch(
+            f"{POCKETBASE_URL}/api/collections/priorities/records/{priority_id}",
+            json={"encrypted_fields": request.encrypted_fields},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="Prioritätsdatensatz nicht gefunden",
+            )
+
+        if response.status_code != 200:
+            error_data = response.json()
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=error_data.get("message", "Fehler beim Aktualisieren der Priorität"),
+            )
+
+        return {
+            "success": True,
+            "message": "Priorität erfolgreich aktualisiert",
+        }
+
+
+@router.delete("/priorities/{priority_id}")
+async def delete_priority(
+    priority_id: str,
+    token: str = Depends(get_current_token),
+    _=Depends(require_admin),
+):
+    """
+    Delete a specific priority record by its ID.
+    """
+    async with httpx.AsyncClient() as client:
+        # Get priority details for response message
+        priority_response = await client.get(
+            f"{POCKETBASE_URL}/api/collections/priorities/records/{priority_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if priority_response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="Prioritätsdatensatz nicht gefunden",
+            )
+
+        if priority_response.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail="Fehler beim Abrufen des Prioritätsdatensatzes",
+            )
+
+        priority_data = priority_response.json()
+        month = priority_data.get("month", "unknown")
+
+        # Delete the priority record
+        delete_response = await client.delete(
+            f"{POCKETBASE_URL}/api/collections/priorities/records/{priority_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if delete_response.status_code not in [200, 204]:
+            raise HTTPException(
+                status_code=delete_response.status_code,
+                detail="Fehler beim Löschen der Priorität",
+            )
+
+        return {
+            "success": True,
+            "message": f"Priorität für Monat {month} erfolgreich gelöscht",
         }
