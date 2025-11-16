@@ -61,6 +61,11 @@ CMD ["uv", "run", "python", "-m", "uvicorn", "priotag.main:app", "--host", "0.0.
 # --- Production stage ---
 FROM ubuntu:24.04 AS production
 
+# Build arguments for metadata
+ARG BUILD_VERSION="unknown"
+ARG BUILD_COMMIT="unknown"
+ARG BUILD_DATE="unknown"
+
 # Install only essential runtime dependencies including supercronic
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
@@ -101,6 +106,10 @@ RUN rm -rf /home/appuser/.local/bin/uv /home/appuser/.local/bin/uvx
 
 # Copy application code
 COPY --chown=appuser:appuser src/ ./src/
+
+# Create build info file
+RUN printf '{\n  "version": "%s",\n  "commit": "%s",\n  "build_date": "%s",\n  "source_url": "https://github.com/DomiDre/priotag/tree/%s"\n}' \
+    "$BUILD_VERSION" "$BUILD_COMMIT" "$BUILD_DATE" "$BUILD_COMMIT" > /app/build_info.json
 
 # Create necessary directories
 RUN mkdir -p /app/static /app/uploads

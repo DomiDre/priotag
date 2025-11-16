@@ -25,6 +25,11 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
 # Build stage
 FROM node:24 AS builder
 
+# Build arguments for metadata
+ARG BUILD_VERSION="unknown"
+ARG BUILD_COMMIT="unknown"
+ARG BUILD_DATE="unknown"
+
 WORKDIR /app
 RUN chown -R node:node /app
 
@@ -38,6 +43,9 @@ RUN npm ci
 
 # Copy source code
 COPY --chown=node:node . .
+
+# Create build info file for injection
+RUN echo "{\"version\":\"$BUILD_VERSION\",\"commit\":\"$BUILD_COMMIT\",\"build_date\":\"$BUILD_DATE\",\"source_url\":\"https://github.com/DomiDre/priotag/tree/$BUILD_COMMIT\"}" > static/build-info.json
 
 # Build the SvelteKit app
 RUN npm run build

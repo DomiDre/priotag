@@ -6,10 +6,11 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Docker](https://img.shields.io/badge/Docker-Ready-brightgreen.svg)](https://www.docker.com/)
 [![GDPR Compliant](https://img.shields.io/badge/GDPR-Compliant-green.svg)](ARCHITECTURE.md#gdpr-compliance)
+[![Signed Images](https://img.shields.io/badge/Images-Signed-purple.svg)](VERIFICATION.md)
 
 **Privacy-First Childcare Priority Management System**
 
-[Features](#features) • [Quick Start](#quick-start) • [Architecture](#architecture) • [Contributing](#contributing)
+[Features](#features) • [Quick Start](#quick-start) • [Architecture](#architecture) • [Verification](#-build-verification) • [Contributing](#contributing)
 
 </div>
 
@@ -25,6 +26,28 @@ PrioTag is a secure web application designed for a single childcare facility to 
 - 👥 **Multi-role support** for parents and administrators
 - 🛡️ **GDPR-compliant** data handling and storage
 - 📱 **Responsive design** for mobile and desktop access
+- ✅ **Verifiable builds** with signed Docker images and transparency
+
+## 🔍 Build Verification
+
+PrioTag implements comprehensive build verification to ensure transparency and trust:
+
+- **🔐 Signed Docker Images**: All production images are cryptographically signed with [Cosign](https://docs.sigstore.dev/cosign/)
+- **📋 SBOM Generation**: Complete Software Bill of Materials for every build
+- **🔗 Source Linking**: Every deployment links to its exact source code commit
+- **👁️ Public CI/CD**: All builds happen in auditable [GitHub Actions](https://github.com/DomiDre/priotag/actions)
+- **🌐 User Verification**: Visit `/verify` on any deployment to confirm authenticity
+
+**Quick Verification:**
+```bash
+# Verify the backend Docker image signature
+cosign verify \
+  --certificate-identity-regexp='https://github.com/DomiDre/priotag' \
+  --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+  ghcr.io/domidre/priotag-backend:latest
+```
+
+For complete verification instructions, see **[VERIFICATION.md](VERIFICATION.md)**.
 
 ## 🏗️ Architecture
 

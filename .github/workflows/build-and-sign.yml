@@ -1,0 +1,406 @@
+name: Build, Sign, and Publish
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write  # Required for signing with cosign
+
+jobs:
+  build-metadata:
+    name: Generate Build Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      commit_sha: ${{ steps.meta.outputs.commit_sha }}
+      build_date: ${{ steps.meta.outputs.build_date }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate metadata
+        id: meta
+        run: |
+          # Generate version from git tag or use commit SHA
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="main-${GITHUB_SHA::7}"
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "commit_sha=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+          echo "Build Version: ${VERSION}"
+          echo "Commit SHA: ${GITHUB_SHA}"
+
+  build-backend:
+    name: Build & Sign Backend Image
+    runs-on: ubuntu-latest
+    needs: build-metadata
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_VERSION=${{ needs.build-metadata.outputs.version }}
+            BUILD_COMMIT=${{ needs.build-metadata.outputs.commit_sha }}
+            BUILD_DATE=${{ needs.build-metadata.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the Docker image with Cosign (keyless)
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend@${{ steps.build.outputs.digest }}
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: backend-sbom.spdx.json
+
+      - name: Upload SBOM as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-sbom
+          path: backend-sbom.spdx.json
+          retention-days: 90
+
+      - name: Attest SBOM
+        run: |
+          cosign attest --yes --type spdxjson \
+            --predicate backend-sbom.spdx.json \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend@${{ steps.build.outputs.digest }}
+
+  build-admin-ui:
+    name: Build & Sign Admin UI Image
+    runs-on: ubuntu-latest
+    needs: build-metadata
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin-ui
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin_ui
+          file: ./admin_ui/Dockerfile
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_VERSION=${{ needs.build-metadata.outputs.version }}
+            BUILD_COMMIT=${{ needs.build-metadata.outputs.commit_sha }}
+            BUILD_DATE=${{ needs.build-metadata.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the Docker image with Cosign (keyless)
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin-ui@${{ steps.build.outputs.digest }}
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin-ui@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: admin-ui-sbom.spdx.json
+
+      - name: Upload SBOM as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-ui-sbom
+          path: admin-ui-sbom.spdx.json
+          retention-days: 90
+
+      - name: Attest SBOM
+        run: |
+          cosign attest --yes --type spdxjson \
+            --predicate admin-ui-sbom.spdx.json \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin-ui@${{ steps.build.outputs.digest }}
+
+  build-frontend:
+    name: Build & Sign Frontend Image
+    runs-on: ubuntu-latest
+    needs: build-metadata
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          target: builder
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_VERSION=${{ needs.build-metadata.outputs.version }}
+            BUILD_COMMIT=${{ needs.build-metadata.outputs.commit_sha }}
+            BUILD_DATE=${{ needs.build-metadata.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the Docker image with Cosign (keyless)
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend@${{ steps.build.outputs.digest }}
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: frontend-sbom.spdx.json
+
+      - name: Upload SBOM as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-sbom
+          path: frontend-sbom.spdx.json
+          retention-days: 90
+
+      - name: Attest SBOM
+        run: |
+          cosign attest --yes --type spdxjson \
+            --predicate frontend-sbom.spdx.json \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend@${{ steps.build.outputs.digest }}
+
+  generate-verification-data:
+    name: Generate Verification Data
+    runs-on: ubuntu-latest
+    needs: [build-metadata, build-backend, build-admin-ui, build-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all SBOMs
+        uses: actions/download-artifact@v4
+        with:
+          path: sboms
+
+      - name: Generate verification manifest
+        run: |
+          cat > verification-manifest.json << EOF
+          {
+            "version": "${{ needs.build-metadata.outputs.version }}",
+            "commit_sha": "${{ needs.build-metadata.outputs.commit_sha }}",
+            "build_date": "${{ needs.build-metadata.outputs.build_date }}",
+            "repository": "${{ github.repository }}",
+            "workflow_run": "${{ github.run_id }}",
+            "images": {
+              "backend": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-metadata.outputs.version }}",
+              "admin_ui": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin-ui:${{ needs.build-metadata.outputs.version }}",
+              "frontend": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-metadata.outputs.version }}"
+            },
+            "verification_instructions": {
+              "cosign_verify": "cosign verify --certificate-identity-regexp='https://github.com/${{ github.repository }}' --certificate-oidc-issuer=https://token.actions.githubusercontent.com <image>",
+              "sbom_download": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "source_code": "https://github.com/${{ github.repository }}/tree/${{ needs.build-metadata.outputs.commit_sha }}"
+            }
+          }
+          EOF
+
+          cat verification-manifest.json
+
+      - name: Upload verification manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-manifest
+          path: verification-manifest.json
+          retention-days: 90
+
+      - name: Create release (if tagged)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            verification-manifest.json
+            sboms/**/*.spdx.json
+          body: |
+            ## Verifiable Build Information
+
+            **Version:** ${{ needs.build-metadata.outputs.version }}
+            **Commit:** ${{ needs.build-metadata.outputs.commit_sha }}
+            **Build Date:** ${{ needs.build-metadata.outputs.build_date }}
+
+            ### Docker Images (Signed)
+
+            All images are signed with [Cosign](https://github.com/sigstore/cosign) using keyless OIDC signing.
+
+            - Backend: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-metadata.outputs.version }}`
+            - Admin UI: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin-ui:${{ needs.build-metadata.outputs.version }}`
+            - Frontend: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-metadata.outputs.version }}`
+
+            ### Verification
+
+            #### Verify Image Signatures
+
+            ```bash
+            # Install cosign (https://docs.sigstore.dev/cosign/installation/)
+
+            # Verify backend image
+            cosign verify \
+              --certificate-identity-regexp='https://github.com/${{ github.repository }}' \
+              --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-metadata.outputs.version }}
+
+            # Verify admin UI image
+            cosign verify \
+              --certificate-identity-regexp='https://github.com/${{ github.repository }}' \
+              --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin-ui:${{ needs.build-metadata.outputs.version }}
+
+            # Verify frontend image
+            cosign verify \
+              --certificate-identity-regexp='https://github.com/${{ github.repository }}' \
+              --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-metadata.outputs.version }}
+            ```
+
+            #### Verify SBOM Attestations
+
+            ```bash
+            # Verify and download SBOM
+            cosign verify-attestation \
+              --type spdxjson \
+              --certificate-identity-regexp='https://github.com/${{ github.repository }}' \
+              --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-metadata.outputs.version }}
+            ```
+
+            #### Verify Source Code
+
+            Compare the commit SHA in the running application with this release:
+            - Visit: https://priotag.de/api/build-info (or your deployment URL)
+            - Check that `commit_sha` matches: `${{ needs.build-metadata.outputs.commit_sha }}`
+            - View source at: https://github.com/${{ github.repository }}/tree/${{ needs.build-metadata.outputs.commit_sha }}
+
+            ### Software Bill of Materials (SBOM)
+
+            SBOMs in SPDX format are attached to this release for all components.
