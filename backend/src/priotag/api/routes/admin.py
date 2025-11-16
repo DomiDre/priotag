@@ -1,8 +1,12 @@
+import os
+import tempfile
 import uuid
+from typing import Any
 
 import httpx
 import redis
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 
 from priotag.models.admin import (
     ManualPriorityRecordForAdmin,
@@ -14,6 +18,7 @@ from priotag.models.auth import SessionInfo
 from priotag.models.pocketbase_schemas import PriorityRecord, UsersResponse
 from priotag.models.priorities import validate_month_format_and_range
 from priotag.services.encryption import EncryptionManager
+from priotag.services.excel_generator import ExcelGenerator
 from priotag.services.magic_word import (
     create_or_update_magic_word,
     get_magic_word_from_cache_or_db,
@@ -520,3 +525,67 @@ async def delete_manual_entry(
             "success": True,
             "message": f"Manueller Eintrag gelöscht (Kennung: {identifier})",
         }
+
+
+@router.post("/export-excel")
+async def export_priorities_to_excel(
+    request: dict[str, Any],
+    _=Depends(require_admin),
+):
+    """
+    Export decrypted priority data to Excel file.
+
+    The frontend decrypts the data client-side and sends it to this endpoint
+    for Excel generation. This keeps the server from having access to
+    unencrypted user data.
+
+    Args:
+        request: Dictionary containing:
+            - decrypted_users: List of user data with priorities
+            - month: Month string for the report title
+
+    Returns:
+        FileResponse: Excel file download
+    """
+
+    decrypted_users = request.get("decrypted_users", [])
+    month = request.get("month", "Unbekannt")
+
+    if not decrypted_users:
+        raise HTTPException(
+            status_code=422,
+            detail="Keine Daten zum Exportieren. Bitte entschlüsseln Sie zuerst die Benutzerdaten.",
+        )
+
+    try:
+        # Create temporary file for Excel export
+        with tempfile.NamedTemporaryFile(
+            mode="wb", suffix=".xlsx", delete=False
+        ) as tmp_file:
+            tmp_path = tmp_file.name
+
+        # Generate Excel file
+        excel_generator = ExcelGenerator()
+        excel_generator.generate_priorities_report(decrypted_users, month, tmp_path)
+
+        # Prepare filename for download
+        safe_month = month.replace("/", "-").replace("\\", "-")
+        filename = f"Prioritäten_{safe_month}.xlsx"
+
+        # Return file as download
+        return FileResponse(
+            path=tmp_path,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=filename,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            background=None,  # File cleanup handled by FastAPI
+        )
+
+    except Exception as e:
+        # Clean up temp file if it exists
+        if "tmp_path" in locals() and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fehler beim Erstellen der Excel-Datei: {str(e)}",
+        ) from e

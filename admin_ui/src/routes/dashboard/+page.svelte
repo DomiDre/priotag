@@ -441,8 +441,33 @@
 		decryptedData = null;
 	}
 
-	function exportToExcel() {
-		alert('Excel-Export wird noch implementiert');
+	async function exportToExcel() {
+		if (!keyUploaded || decryptedUsers.size === 0) {
+			decryptionError =
+				'Bitte authentifizieren Sie sich und entschlüsseln Sie die Daten, bevor Sie exportieren.';
+			return;
+		}
+
+		try {
+			// Convert decrypted users map to array format expected by backend
+			const decryptedUsersArray = Array.from(decryptedUsers.values());
+
+			// Call API to generate and download Excel file
+			await apiService.exportToExcel(decryptedUsersArray, selectedMonth);
+
+			// Show success message
+			successMessage = 'Excel-Datei erfolgreich heruntergeladen!';
+			showSuccessToast = true;
+			setTimeout(() => {
+				showSuccessToast = false;
+			}, 3000);
+		} catch (err) {
+			console.error('Excel-Export-Fehler:', err);
+			decryptionError =
+				err instanceof Error
+					? err.message
+					: 'Fehler beim Exportieren der Excel-Datei. Bitte versuchen Sie es erneut.';
+		}
 	}
 
 	function openManualEntry() {

@@ -229,6 +229,29 @@ export class ApiService {
 			method: 'DELETE'
 		});
 	}
+
+	// ==================== Excel Export ====================
+
+	async exportToExcel(decryptedUsers: any[], month: string): Promise<void> {
+		const response = await this.request('/admin/export-excel', {
+			method: 'POST',
+			body: JSON.stringify({
+				decrypted_users: decryptedUsers,
+				month: month
+			})
+		});
+
+		// Download the file
+		const blob = await response.blob();
+		const url = window.URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `Prioritäten_${month.replace(/\//g, '-')}.xlsx`;
+		document.body.appendChild(a);
+		a.click();
+		window.URL.revokeObjectURL(url);
+		document.body.removeChild(a);
+	}
 }
 
 export const apiService = new ApiService();
