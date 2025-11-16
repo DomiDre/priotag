@@ -28,6 +28,17 @@ class RegisterRequest(BaseModel):
     keep_logged_in: bool = False
 
 
+class QRRegisterRequest(BaseModel):
+    """Request for QR code-based registration (all-in-one)"""
+
+    identity: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1)
+    passwordConfirm: str
+    name: str = Field(..., min_length=1)
+    magic_word: str = Field(..., min_length=1)
+    keep_logged_in: bool = False
+
+
 class DatabaseLoginResponse(BaseModel):
     """Response from pocketbase upon login request"""
 

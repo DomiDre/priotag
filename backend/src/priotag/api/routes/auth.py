@@ -22,6 +22,7 @@ from priotag.models.auth import (
     LoginResponse,
     MagicWordRequest,
     MagicWordResponse,
+    QRRegisterRequest,
     RegisterRequest,
     SecurityMode,
     SessionInfo,
@@ -307,6 +308,172 @@ async def register_user(
             }
     finally:
         # Remove email lock
+        redis_client.delete(identity_key)
+
+
+@router.post("/register-qr")
+async def register_user_qr(
+    request: QRRegisterRequest,
+    response: Response,
+    req: Request,
+    redis_client: redis.Redis = Depends(get_redis),
+):
+    """
+    All-in-one QR code registration endpoint.
+    Combines magic word verification and user registration in a single step.
+    Designed for QR code-based registration within the institute.
+    """
+    # Rate limiting by IP (same as magic word verification)
+    client_ip = get_client_ip(req)
+    rate_limit_key = f"rate_limit:magic_word:{client_ip}"
+    attempts = redis_client.get(rate_limit_key)
+
+    if attempts and int(str(attempts)) >= 10:
+        raise HTTPException(
+            status_code=429,
+            detail="Zu viele Versuche. Bitte versuchen Sie es später erneut.",
+        )
+
+    # Get magic word from cache/database
+    magic_word = await get_magic_word_from_cache_or_db(redis_client)
+    if not magic_word:
+        raise HTTPException(status_code=500, detail="No magic word is initialized")
+
+    # Verify magic word (case-insensitive comparison)
+    is_valid = request.magic_word.strip().lower() == magic_word.lower()
+    track_magic_word_verification(is_valid)
+
+    if not is_valid:
+        # Increment rate limit counter
+        redis_client.incr(rate_limit_key)
+        redis_client.expire(rate_limit_key, 3600)
+        raise HTTPException(status_code=403, detail="Ungültiges Zauberwort")
+
+    # Reset rate limit on success
+    redis_client.delete(rate_limit_key)
+
+    # Check for duplicate registration attempts
+    identity_key = f"reg_identity:{request.identity}"
+    if redis_client.exists(identity_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Eine Registrierung für diese E-Mail-Adresse läuft bereits",
+        )
+
+    # Set temporary lock on identity (5 minutes)
+    redis_client.setex(identity_key, 300, "registering")
+
+    try:
+        # Create data encryption key
+        encryption_data = EncryptionManager.create_user_encryption_data(
+            request.password
+        )
+        dek = EncryptionManager.get_user_dek(
+            request.password,
+            encryption_data["salt"],
+            encryption_data["user_wrapped_dek"],
+        )
+
+        # Encrypt sensitive data
+        encrypted_fields = EncryptionManager.encrypt_fields({"name": request.name}, dek)
+
+        # Proxy registration to PocketBase
+        async with httpx.AsyncClient() as client:
+            # Authenticate as service account
+            service_token = await authenticate_service_account(client)
+
+            if not service_token:
+                raise HTTPException(
+                    status_code=500, detail="Service authentication failed"
+                )
+
+            auth_response = await client.post(
+                f"{POCKETBASE_URL}/api/collections/users/records",
+                headers={"Authorization": f"Bearer {service_token}"},
+                json={
+                    "username": request.identity,
+                    "password": request.password,
+                    "passwordConfirm": request.passwordConfirm,
+                    "role": "user",
+                    "salt": encryption_data["salt"],
+                    "user_wrapped_dek": encryption_data["user_wrapped_dek"],
+                    "admin_wrapped_dek": encryption_data["admin_wrapped_dek"],
+                    "encrypted_fields": encrypted_fields,
+                },
+            )
+
+            registration_success = auth_response.status_code == 200
+            track_user_registration(success=registration_success)
+            if not registration_success:
+                error_data = auth_response.json()
+
+                # Handle PocketBase validation errors
+                if "data" in error_data:
+                    errors = []
+                    for field, msgs in error_data["data"].items():
+                        if field == "email":
+                            errors.append(
+                                "Email-Adresse ist bereits registriert oder ungültig"
+                            )
+                        elif field == "password":
+                            errors.append("Passwort entspricht nicht den Anforderungen")
+                        else:
+                            errors.append(f"{field}: {msgs['message']}")
+                    raise HTTPException(status_code=400, detail=". ".join(errors))
+
+                raise HTTPException(
+                    status_code=auth_response.status_code,
+                    detail=error_data.get("message", "Registrierung fehlgeschlagen"),
+                )
+
+            user_data = auth_response.json()
+
+            # Authenticate the newly created user
+            auth_response = await client.post(
+                f"{POCKETBASE_URL}/api/collections/users/auth-with-password",
+                json={
+                    "identity": request.identity,
+                    "password": request.password,
+                },
+            )
+
+            if auth_response.status_code != 200:
+                raise HTTPException(
+                    status_code=500, detail="User created but auto-login failed"
+                )
+
+            auth_data = auth_response.json()
+            token = auth_data["token"]
+
+            # Store session in Redis
+            session_key = f"session:{token}"
+            session_info = {
+                "user_id": auth_data["record"]["id"],
+                "username": auth_data["record"]["username"],
+                "role": auth_data["record"]["role"],
+                "is_admin": auth_data["record"]["role"] == "admin",
+            }
+
+            # Determine session duration
+            if request.keep_logged_in:
+                session_ttl = 30 * 24 * 3600  # 30 days
+                cookie_max_age = 30 * 24 * 3600
+            else:
+                session_ttl = 8 * 3600  # 8 hours
+                cookie_max_age = 8 * 3600
+
+            redis_client.setex(session_key, session_ttl, json.dumps(session_info))
+
+            # Set auth cookies
+            set_auth_cookies(response, token, dek, cookie_max_age)
+
+            return {
+                "success": True,
+                "message": "Registrierung erfolgreich",
+                "username": user_data.get("username"),
+            }
+    finally:
+        # Remove identity lock
         redis_client.delete(identity_key)
 
 
