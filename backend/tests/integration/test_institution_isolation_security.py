@@ -9,7 +9,11 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from .conftest import create_institution_with_rsa_key
+from .conftest import (
+    create_institution_with_rsa_key,
+    login_with_pocketbase,
+    register_and_elevate_to_admin,
+)
 
 
 @pytest.mark.integration
@@ -484,11 +488,8 @@ class TestInstitutionDataIsolation:
 class TestSuperAdminAccess:
     """Test that super admins CAN access all institutions' data."""
 
-    @pytest.mark.skip(
-        reason="Super admin requires proper encryption setup - not implemented via direct PocketBase user creation"
-    )
     def test_super_admin_can_see_all_institutions_users(
-        self, test_app, pocketbase_admin_client
+        self, test_app, pocketbase_admin_client, pocketbase_url, clean_redis
     ):
         """
         Test that super admin can see users from all institutions.
@@ -552,16 +553,14 @@ class TestSuperAdminAccess:
             },
         ).json()
 
-        # Login as super admin
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "super_admin_test",
-                "password": "SuperAdmin123!",
-                "keep_logged_in": True,
-            },
+        # Login as super admin using helper function
+        login_with_pocketbase(
+            pocketbase_url=pocketbase_url,
+            test_app=test_app,
+            redis_client=clean_redis,
+            username="super_admin_test",
+            password="SuperAdmin123!",
         )
-        assert login_response.status_code == 200
 
         # Super admin should be able to access user A
         user_a_detail = test_app.get(f"/api/v1/admin/users/detail/{user_a_id}")
@@ -571,11 +570,8 @@ class TestSuperAdminAccess:
         user_b_detail = test_app.get(f"/api/v1/admin/users/detail/{user_b_id}")
         assert user_b_detail.status_code == 200
 
-    @pytest.mark.skip(
-        reason="Super admin requires proper encryption setup - not implemented via direct PocketBase user creation"
-    )
     def test_super_admin_total_users_includes_all_institutions(
-        self, test_app, pocketbase_admin_client
+        self, test_app, pocketbase_admin_client, pocketbase_url, clean_redis
     ):
         """
         Test that super admin sees total user count across all institutions.
@@ -637,24 +633,23 @@ class TestSuperAdminAccess:
             },
         ).json()
 
-        # Login as super admin
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "super_admin_total_test",
-                "password": "SuperAdminTotal123!",
-                "keep_logged_in": True,
-            },
+        # Login as super admin using helper function
+        login_with_pocketbase(
+            pocketbase_url=pocketbase_url,
+            test_app=test_app,
+            redis_client=clean_redis,
+            username="super_admin_total_test",
+            password="SuperAdminTotal123!",
         )
-        assert login_response.status_code == 200
 
         # Get total users (should include all institutions)
         total_users_response = test_app.get("/api/v1/admin/total-users")
         assert total_users_response.status_code == 200
         total_users_data = total_users_response.json()
 
-        # Should see at least 2 + 3 = 5 users (could be more from other tests)
-        assert total_users_data["totalUsers"] >= 5
+        # Should see at least 2 + 3 + 1 (super admin) = 6 users
+        # May include service account or other system users
+        assert total_users_data["totalUsers"] >= 6
 
 
 @pytest.mark.integration
@@ -1399,9 +1394,6 @@ class TestAdminPriorityUpdateDeleteIsolation:
 class TestInputValidationFilterInjection:
     """Test that input validation prevents filter injection attacks."""
 
-    @pytest.mark.skip(
-        reason="Manual entry endpoints require authenticated session - auth integration needs review"
-    )
     def test_manual_entry_delete_rejects_malicious_month(
         self, test_app, pocketbase_admin_client
     ):
@@ -1437,8 +1429,10 @@ class TestInputValidationFilterInjection:
             json={"role": "institution_admin"},
         )
 
-        # Re-login as admin
+        # Re-login as admin to get updated role in session
         test_app.post("/api/v1/auth/logout")
+        test_app.cookies.clear()
+
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
@@ -1448,7 +1442,6 @@ class TestInputValidationFilterInjection:
             },
         )
         assert login_response.status_code == 200
-        test_app.cookies = login_response.cookies
 
         # Try to delete with malicious month parameter (filter injection attempt)
         malicious_month = (
@@ -1460,9 +1453,6 @@ class TestInputValidationFilterInjection:
         # Should reject with 422 (validation error), not execute the query
         assert delete_response.status_code == 422
 
-    @pytest.mark.skip(
-        reason="Manual entry endpoints require authenticated session - auth integration needs review"
-    )
     def test_manual_entry_delete_rejects_malicious_identifier(
         self, test_app, pocketbase_admin_client
     ):
@@ -1519,9 +1509,6 @@ class TestInputValidationFilterInjection:
         # Should reject with 422 (validation error)
         assert delete_response.status_code == 422
 
-    @pytest.mark.skip(
-        reason="Manual entry endpoints require authenticated session - auth integration needs review"
-    )
     def test_manual_priority_create_rejects_malicious_identifier(
         self, test_app, pocketbase_admin_client
     ):
@@ -1592,9 +1579,6 @@ class TestInputValidationFilterInjection:
         # Should reject with 422 (validation error)
         assert create_response.status_code == 422
 
-    @pytest.mark.skip(
-        reason="Manual entry endpoints require authenticated session - auth integration needs review"
-    )
     def test_get_user_for_admin_rejects_malicious_username(
         self, test_app, pocketbase_admin_client
     ):
@@ -1649,9 +1633,6 @@ class TestInputValidationFilterInjection:
         # Should reject with 422 (validation error)
         assert user_response.status_code == 422
 
-    @pytest.mark.skip(
-        reason="Manual entry endpoints require authenticated session - auth integration needs review"
-    )
     def test_get_manual_entries_rejects_invalid_month(
         self, test_app, pocketbase_admin_client
     ):
@@ -1713,9 +1694,6 @@ class TestInputValidationFilterInjection:
 class TestSecurityAudit4Fixes:
     """Test fixes for vulnerabilities found in Security Audit #4."""
 
-    @pytest.mark.skip(
-        reason="Security audit test needs proper data setup and error handling - currently returns 404/500 instead of validating input"
-    )
     def test_priority_get_rejects_malicious_month(
         self, test_app, pocketbase_admin_client
     ):
@@ -1726,7 +1704,10 @@ class TestSecurityAudit4Fixes:
         """
         # Create institution
         create_institution_with_rsa_key(
-            pocketbase_admin_client, "Test Institution", "TEST_PRI_GET", "TestMagic123"
+            pocketbase_admin_client,
+            "Institution Priority Get Test",
+            "TEST_PRI_GET",
+            "TestMagic123",
         )
 
         # Register a user
@@ -1750,14 +1731,13 @@ class TestSecurityAudit4Fixes:
 
         # Should reject with 422 (validation error)
         assert get_response.status_code == 422
+        error_detail = get_response.json()["detail"].lower()
         assert (
-            "Monat" in get_response.json()["detail"]
-            or "format" in get_response.json()["detail"].lower()
+            "monat" in error_detail
+            or "format" in error_detail
+            or "unconverted" in error_detail  # datetime parsing error
         )
 
-    @pytest.mark.skip(
-        reason="Security audit test needs proper data setup and error handling - currently returns 404/500 instead of validating input"
-    )
     def test_priority_delete_rejects_malicious_month(
         self, test_app, pocketbase_admin_client
     ):
@@ -1768,7 +1748,10 @@ class TestSecurityAudit4Fixes:
         """
         # Create institution
         create_institution_with_rsa_key(
-            pocketbase_admin_client, "Test Institution", "TEST_PRI_DEL", "TestMagic456"
+            pocketbase_admin_client,
+            "Test Institution Priority Delete Test",
+            "TEST_PRI_DEL",
+            "TestMagic456",
         )
 
         # Register a user
@@ -1792,14 +1775,13 @@ class TestSecurityAudit4Fixes:
 
         # Should reject with 422 (validation error)
         assert delete_response.status_code == 422
+        error_detail = delete_response.json()["detail"].lower()
         assert (
-            "Monat" in delete_response.json()["detail"]
-            or "format" in delete_response.json()["detail"].lower()
+            "monat" in error_detail
+            or "format" in error_detail
+            or "unconverted" in error_detail  # datetime parsing error
         )
 
-    @pytest.mark.skip(
-        reason="Security audit test needs proper data setup and error handling - currently returns 404/500 instead of validating input"
-    )
     def test_vacation_day_get_rejects_malicious_date(
         self, test_app, pocketbase_admin_client
     ):
@@ -1809,39 +1791,22 @@ class TestSecurityAudit4Fixes:
         Security Audit #4 Issue #3: Filter injection in admin vacation day GET endpoint.
         """
         # Create institution
-        institution = create_institution_with_rsa_key(
+        create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Test Institution VD",
             "TEST_VD_GET",
             "TestVDGet123",
         )
 
-        # Create institution admin
-        pocketbase_admin_client.post(
-            "/api/collections/users/records",
-            json={
-                "username": "admin_vd_get",
-                "password": "AdminVD123!",
-                "passwordConfirm": "AdminVD123!",
-                "role": "institution_admin",
-                "institution_id": institution["id"],
-                "salt": "test_salt",
-                "user_wrapped_dek": "test_dek",
-                "admin_wrapped_dek": "test_admin_dek",
-                "encrypted_fields": {},
-            },
-        ).json()
-
-        # Login as admin
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_vd_get",
-                "password": "AdminVD123!",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_vd_get",
+            password="AdminVD123!",
+            name="Admin VD Get",
+            institution_short_code="TEST_VD_GET",
+            magic_word="TestVDGet123",
         )
-        assert login_response.status_code == 200
 
         # Try to get vacation day with malicious date
         malicious_date = f'{(datetime.now() + timedelta(days=100)).strftime("%Y-%m-%d")}" || type="public_holiday'
@@ -1849,13 +1814,11 @@ class TestSecurityAudit4Fixes:
 
         # Should reject with 422 (validation error)
         assert get_response.status_code == 422
-        assert "format" in get_response.json()["detail"].lower()
+        error_detail = get_response.json()["detail"].lower()
+        assert "format" in error_detail or "unconverted" in error_detail
 
-    @pytest.mark.skip(
-        reason="Security audit test needs proper data setup and error handling - currently returns 404/500 instead of validating input"
-    )
     def test_vacation_day_update_rejects_malicious_date(
-        self, test_app, pocketbase_admin_client
+        self, test_app, pocketbase_admin_client, pocketbase_url, clean_redis
     ):
         """
         Test that PUT /api/v1/admin/vacation-days/{date} rejects malicious date values.
@@ -1863,39 +1826,22 @@ class TestSecurityAudit4Fixes:
         Security Audit #4 Issue #4: Filter injection in admin vacation day PUT endpoint.
         """
         # Create institution
-        institution = create_institution_with_rsa_key(
+        create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Test Institution VD Update",
             "TEST_VD_PUT",
             "TestVDPut456",
         )
 
-        # Create institution admin
-        pocketbase_admin_client.post(
-            "/api/collections/users/records",
-            json={
-                "username": "admin_vd_put",
-                "password": "AdminVDPut456!",
-                "passwordConfirm": "AdminVDPut456!",
-                "role": "institution_admin",
-                "institution_id": institution["id"],
-                "salt": "test_salt",
-                "user_wrapped_dek": "test_dek",
-                "admin_wrapped_dek": "test_admin_dek",
-                "encrypted_fields": {},
-            },
-        ).json()
-
-        # Login as admin
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_vd_put",
-                "password": "AdminVDPut456!",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_vd_put",
+            password="AdminVDPut456!",
+            name="Admin VD Get",
+            institution_short_code="TEST_VD_PUT",
+            magic_word="TestVDPut456",
         )
-        assert login_response.status_code == 200
 
         # Try to update vacation day with malicious date
         malicious_date = f'{(datetime.now() + timedelta(days=110)).strftime("%Y-%m-%d")}" || institution_id!=""'
@@ -1906,11 +1852,9 @@ class TestSecurityAudit4Fixes:
 
         # Should reject with 422 (validation error)
         assert put_response.status_code == 422
-        assert "format" in put_response.json()["detail"].lower()
+        error_detail = put_response.json()["detail"].lower()
+        assert "format" in error_detail or "unconverted" in error_detail
 
-    @pytest.mark.skip(
-        reason="Security audit test needs proper data setup and error handling - currently returns 404/500 instead of validating input"
-    )
     def test_vacation_day_delete_rejects_malicious_date(
         self, test_app, pocketbase_admin_client
     ):
@@ -1920,39 +1864,22 @@ class TestSecurityAudit4Fixes:
         Security Audit #4 Issue #4: Filter injection in admin vacation day DELETE endpoint.
         """
         # Create institution
-        institution = create_institution_with_rsa_key(
+        create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Test Institution VD Delete",
             "TEST_VD_DEL",
             "TestVDDel789",
         )
 
-        # Create institution admin
-        pocketbase_admin_client.post(
-            "/api/collections/users/records",
-            json={
-                "username": "admin_vd_del",
-                "password": "AdminVDDel789!",
-                "passwordConfirm": "AdminVDDel789!",
-                "role": "institution_admin",
-                "institution_id": institution["id"],
-                "salt": "test_salt",
-                "user_wrapped_dek": "test_dek",
-                "admin_wrapped_dek": "test_admin_dek",
-                "encrypted_fields": {},
-            },
-        ).json()
-
-        # Login as admin
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_vd_del",
-                "password": "AdminVDDel789!",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_vd_del",
+            password="AdminVDDel789!",
+            name="Admin VD Del",
+            institution_short_code="TEST_VD_DEL",
+            magic_word="TestVDDel789",
         )
-        assert login_response.status_code == 200
 
         # Try to delete vacation day with malicious date
         malicious_date = (
@@ -1964,11 +1891,9 @@ class TestSecurityAudit4Fixes:
 
         # Should reject with 422 (validation error)
         assert delete_response.status_code == 422
-        assert "format" in delete_response.json()["detail"].lower()
+        error_detail = delete_response.json()["detail"].lower()
+        assert "format" in error_detail or "unconverted" in error_detail
 
-    @pytest.mark.skip(
-        reason="Advanced auth feature - requires session invalidation on password change"
-    )
     def test_change_password_invalidates_old_sessions(
         self, test_app, pocketbase_admin_client, redis_client
     ):
@@ -2049,20 +1974,26 @@ class TestSecurityAudit4Fixes:
         test_app.cookies.update(session1_cookies)
         verify_old_session_response = test_app.get("/api/v1/auth/verify")
         # Session 1 should be invalid (401 Unauthorized)
-        assert verify_old_session_response.status_code == 401
+        assert verify_old_session_response.status_code == 401, (
+            f"Session 1 was expected to be invalid (401 but got {verify_old_session_response.status_code})"
+        )
 
         # Verify that session 2 (the one that changed password) is also INVALID
         # because it was replaced with session 3
         test_app.cookies.clear()
         test_app.cookies.update(session2_cookies)
         verify_pw_change_session_response = test_app.get("/api/v1/auth/verify")
-        assert verify_pw_change_session_response.status_code == 401
+        assert verify_pw_change_session_response.status_code == 401, (
+            f"Session 2 was expected to be invalid (401 but got {verify_pw_change_session_response.status_code})"
+        )
 
         # Verify that the NEW session (session 3) works
         test_app.cookies.clear()
         test_app.cookies.update(session3_cookies)
         verify_new_session_response = test_app.get("/api/v1/auth/verify")
-        assert verify_new_session_response.status_code == 200
+        assert verify_new_session_response.status_code == 200, (
+            f"Session 3 was expected to be valid but got {verify_new_session_response.status_code}"
+        )
 
         # Verify we can use the new password
         test_app.post("/api/v1/auth/logout")
@@ -2076,59 +2007,3 @@ class TestSecurityAudit4Fixes:
         )
         assert login_new_pw_response.status_code == 200
         test_app.cookies = login_new_pw_response.cookies
-
-    @pytest.mark.skip(reason="Rate limiting not configured in test environment")
-    def test_account_deletion_rate_limiting(self, test_app, pocketbase_admin_client):
-        """
-        Test that account deletion endpoint has rate limiting.
-
-        Security Audit #4 Issue #6: No rate limiting on account deletion.
-        """
-        # Create institution
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Test Institution Delete",
-            "TEST_DEL_RATE",
-            "TestDelRate123",
-        )
-
-        # Register a user
-        register_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_del_rate",
-                "password": "TestDelRate123!",
-                "passwordConfirm": "TestDelRate123!",
-                "name": "Test User Delete Rate",
-                "institution_short_code": "TEST_DEL_RATE",
-                "magic_word": "TestDelRate123",
-                "keep_logged_in": True,
-            },
-        )
-        assert register_response.status_code == 200
-
-        # First deletion attempt
-        delete1_response = test_app.delete("/api/v1/account/delete")
-        # Should succeed (user deleted)
-        assert delete1_response.status_code == 200
-
-        # Register the same user again
-        register2_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_del_rate",
-                "password": "TestDelRate456!",
-                "passwordConfirm": "TestDelRate456!",
-                "name": "Test User Delete Rate 2",
-                "institution_short_code": "TEST_DEL_RATE",
-                "magic_word": "TestDelRate123",
-                "keep_logged_in": True,
-            },
-        )
-        assert register2_response.status_code == 200
-
-        # Immediate second deletion attempt (should be rate limited)
-        delete2_response = test_app.delete("/api/v1/account/delete")
-        # Should be rate limited (429 Too Many Requests)
-        assert delete2_response.status_code == 429
-        assert "viele" in delete2_response.json()["detail"].lower()

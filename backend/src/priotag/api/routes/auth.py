@@ -610,7 +610,6 @@ async def login_user(
 
     redis_client.incr(identity_rate_limit_key)
     redis_client.expire(identity_rate_limit_key, 60)
-
     try:
         async with httpx.AsyncClient() as client:
             # Authenticate with PocketBase
@@ -649,13 +648,17 @@ async def login_user(
             security_mode: SecurityMode = (
                 "persistent" if request.keep_logged_in else "session"
             )
-
             # Unwrap user's DEK using their password
             dek = EncryptionManager.get_user_dek(
                 request.password,
                 user_record.salt,
                 user_record.user_wrapped_dek,
             )
+
+            # Remove token from blacklist if it was previously logged out
+            # (PocketBase may reuse the same token for the same user)
+            blacklist_key = f"blacklist:{token}"
+            redis_client.delete(blacklist_key)
 
             # Store session info in Redis
             session_key = f"session:{token}"

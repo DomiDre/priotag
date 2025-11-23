@@ -5,6 +5,8 @@ Provides real Redis and PocketBase instances via testcontainers or docker-compos
 Set USE_DOCKER_SERVICES=true to use docker-compose services instead of testcontainers.
 """
 
+import base64
+import json
 import os
 import secrets
 import time
@@ -17,6 +19,7 @@ import redis
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from starlette.testclient import TestClient
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
@@ -44,6 +47,9 @@ def create_institution_with_rsa_key(pocketbase_client, name, short_code, magic_w
 
     Returns:
         dict: Created institution record with all fields
+
+    Raises:
+        AssertionError: If institution creation fails
     """
     # Generate RSA keypair
     private_key = rsa.generate_private_key(
@@ -66,7 +72,169 @@ def create_institution_with_rsa_key(pocketbase_client, name, short_code, magic_w
             "active": True,
         },
     )
+
+    assert response.status_code == 200, (
+        f"Failed to create institution '{name}' (short_code: {short_code}): "
+        f"Status {response.status_code}, Response: {response.text}"
+    )
+
     return response.json()
+
+
+def login_with_pocketbase(
+    pocketbase_url: str,
+    test_app: TestClient,
+    redis_client: redis.Redis,
+    username: str,
+    password: str,
+    user_record: dict | None = None,
+) -> str:
+    """
+    Authenticate directly with PocketBase and set up session for test_app.
+
+    This helper allows testing users created directly in PocketBase without
+    going through the full registration flow with encryption setup.
+
+    Args:
+        pocketbase_url: PocketBase base URL
+        test_app: FastAPI TestClient to set cookies on
+        redis_client: Redis client for session storage
+        username: Username to authenticate
+        password: Password to authenticate
+        user_record: Optional user record (if already fetched). Will be fetched if not provided.
+
+    Returns:
+        str: The authentication token
+
+    Raises:
+        AssertionError: If authentication fails
+    """
+    # Authenticate with PocketBase
+    pb_client = httpx.Client(base_url=pocketbase_url, timeout=10.0)
+    auth_response = pb_client.post(
+        "/api/collections/users/auth-with-password",
+        json={
+            "identity": username,
+            "password": password,
+        },
+    )
+    assert auth_response.status_code == 200, (
+        f"PocketBase authentication failed: {auth_response.status_code} - {auth_response.text}"
+    )
+
+    auth_data = auth_response.json()
+    token = auth_data["token"]
+    record = user_record or auth_data["record"]
+
+    # Create session in Redis (mimicking what the login endpoint does)
+    session_key = f"session:{token}"
+    session_info = {
+        "id": record["id"],
+        "username": record["username"],
+        "role": record["role"],
+        "is_admin": record["role"] in ["institution_admin", "super_admin"],
+        "institution_id": record.get("institution_id"),
+    }
+
+    # Set session TTL (15 minutes for admins, 8 hours for regular users)
+    if session_info["is_admin"]:
+        session_ttl = 900  # 15 minutes
+    else:
+        session_ttl = 8 * 3600  # 8 hours
+
+    redis_client.setex(session_key, session_ttl, json.dumps(session_info))
+
+    # Set cookies on test_app
+    # Note: For test users without encryption data, we use a dummy DEK
+    # This won't work for actual encrypted operations but is fine for testing
+    # access control and authorization
+    dummy_dek = b"\x00" * 32  # 32 bytes of zeros
+
+    # TestClient uses httpx.Cookies which is a simple dict-like object
+    # We can set cookies directly without domain/path parameters
+    test_app.cookies["auth_token"] = token
+    test_app.cookies["dek"] = base64.b64encode(dummy_dek).decode("utf-8")
+
+    pb_client.close()
+    return token
+
+
+def register_and_elevate_to_admin(
+    test_app: TestClient,
+    pocketbase_admin_client: httpx.Client,
+    username: str,
+    password: str,
+    name: str,
+    institution_short_code: str,
+    magic_word: str,
+) -> str:
+    """
+    Register a user and elevate them to institution_admin role.
+
+    This helper implements the register → elevate → logout → re-login pattern
+    that is commonly used in security tests.
+
+    Args:
+        test_app: FastAPI TestClient
+        pocketbase_admin_client: Authenticated PocketBase admin client
+        username: Username for the user
+        password: Password for the user
+        name: Display name for the user
+        institution_short_code: Institution short code
+        magic_word: Registration magic word
+
+    Returns:
+        str: The user ID of the created admin user
+
+    Raises:
+        AssertionError: If registration, elevation, or login fails
+    """
+    # Register user via register-qr endpoint
+    register_response = test_app.post(
+        "/api/v1/auth/register-qr",
+        json={
+            "identity": username,
+            "password": password,
+            "passwordConfirm": password,
+            "name": name,
+            "institution_short_code": institution_short_code,
+            "magic_word": magic_word,
+            "keep_logged_in": True,
+        },
+    )
+    assert register_response.status_code == 200, (
+        f"Failed to register user '{username}': {register_response.status_code} - {register_response.text}"
+    )
+    user_id = register_response.json()["id"]
+
+    # Elevate user to institution_admin
+    elevate_response = pocketbase_admin_client.patch(
+        f"/api/collections/users/records/{user_id}",
+        json={"role": "institution_admin"},
+    )
+    assert elevate_response.status_code == 200, (
+        f"Failed to elevate user '{username}' to institution_admin: "
+        f"{elevate_response.status_code} - {elevate_response.text}"
+    )
+
+    # Logout and clear cookies
+    test_app.post("/api/v1/auth/logout")
+    test_app.cookies.clear()
+
+    # Re-login to get updated role in session
+    login_response = test_app.post(
+        "/api/v1/auth/login",
+        json={
+            "identity": username,
+            "password": password,
+            "keep_logged_in": True,
+        },
+    )
+    assert login_response.status_code == 200, (
+        f"Failed to re-login as '{username}': {login_response.status_code} - {login_response.text}"
+    )
+
+    return user_id
 
 
 def register_and_login_user(

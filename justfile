@@ -91,6 +91,10 @@ test-frontend:
 # Run all tests
 test: test-backend test-frontend
 
+
+test-locally *args:
+    cd backend && uv run pytest {{ args }}
+
 test-cli-locally:
     ./scripts/test-ci-locally.sh
 
