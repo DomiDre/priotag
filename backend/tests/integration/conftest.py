@@ -551,6 +551,7 @@ def pocketbase_url(monkeypatch, pocketbase_container):
         # Patch all route modules that import POCKETBASE_URL directly
         # This is necessary because Python imports create local copies of the constant
         try:
+            from priotag import utils
             from priotag.api.routes import account, auth, priorities, vacation_days
             from priotag.services import institution
 
@@ -559,6 +560,8 @@ def pocketbase_url(monkeypatch, pocketbase_container):
             monkeypatch.setattr(account, "POCKETBASE_URL", pocketbase_url)
             monkeypatch.setattr(auth, "POCKETBASE_URL", pocketbase_url)
             monkeypatch.setattr(institution, "POCKETBASE_URL", pocketbase_url)
+            monkeypatch.setattr(utils, "POCKETBASE_URL", pocketbase_url)
+
         except (ImportError, AttributeError):
             # Modules may not be imported yet
             pass
