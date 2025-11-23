@@ -253,9 +253,9 @@ class TestUserRegistrationWithInstitutions:
                 "keep_logged_in": False,
             },
         )
-        assert (
-            reg_a.status_code == 200
-        ), f"Registration A failed: {reg_a.status_code} - {reg_a.text}"
+        assert reg_a.status_code == 200, (
+            f"Registration A failed: {reg_a.status_code} - {reg_a.text}"
+        )
 
         # Register user in Institution B
         reg_b = test_app.post(
@@ -270,9 +270,9 @@ class TestUserRegistrationWithInstitutions:
                 "keep_logged_in": False,
             },
         )
-        assert (
-            reg_b.status_code == 200
-        ), f"Registration B failed: {reg_b.status_code} - {reg_b.text}"
+        assert reg_b.status_code == 200, (
+            f"Registration B failed: {reg_b.status_code} - {reg_b.text}"
+        )
 
         # Verify users exist in different institutions
         users_a = pocketbase_admin_client.get(

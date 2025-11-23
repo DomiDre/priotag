@@ -607,9 +607,9 @@ class TestVacationDaysIntegration:
             for day in data
             if day["date"].startswith(date1) or day["date"].startswith(date2)
         ]
-        assert (
-            len(matching_dates) >= 2
-        ), f"Expected at least 2 vacation days in range, got {len(data)}: {[d['date'] for d in data]}"
+        assert len(matching_dates) >= 2, (
+            f"Expected at least 2 vacation days in range, got {len(data)}: {[d['date'] for d in data]}"
+        )
 
         assert any(day["date"].startswith(date1) for day in data)
         assert any(day["date"].startswith(date2) for day in data)
