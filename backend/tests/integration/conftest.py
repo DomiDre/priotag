@@ -6,6 +6,7 @@ Set USE_DOCKER_SERVICES=true to use docker-compose services instead of testconta
 """
 
 import os
+import secrets
 import time
 from collections.abc import Generator
 from pathlib import Path
@@ -19,11 +20,17 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
+from .setup_pocketbase import setup_pocketbase
+
 # Check if we should use docker-compose services
 USE_DOCKER_SERVICES = os.getenv("USE_DOCKER_SERVICES", "").lower() == "true"
 
 # Store setup results globally for session scope
 _POCKETBASE_SETUP_RESULT = None
+
+# ---------------------------------------------------------------------------- #
+#                               HELPER FUNCTIONS                               #
+# ---------------------------------------------------------------------------- #
 
 
 def create_institution_with_rsa_key(pocketbase_client, name, short_code, magic_word):
@@ -62,6 +69,178 @@ def create_institution_with_rsa_key(pocketbase_client, name, short_code, magic_w
     return response.json()
 
 
+def register_and_login_user(
+    test_app,
+    username: str | None = None,
+    password: str | None = None,
+    name: str | None = None,
+) -> dict:
+    """
+    Helper function to register and login a test user.
+
+    Args:
+        test_app: FastAPI TestClient
+        username: Username for the user (auto-generated if not provided)
+        password: Password for the user (default: "SecurePassword123!")
+        name: Display name for the user (default: "Test User")
+
+    Returns:
+        dict with:
+            - username: The username used
+            - password: The password used
+            - name: The display name used
+            - cookies: Authentication cookies from login
+            - user_record: The user record from registration
+    """
+
+    # Generate unique username if not provided
+    if username is None:
+        unique_suffix = secrets.token_hex(4)
+        username = f"testuser_{unique_suffix}"
+
+    user_data: dict[str, str | dict] = {
+        "username": username,
+        "password": password or "SecurePassword123!",
+        "name": name or "Test User",
+        "magic_word": "test",  # Default test institution magic word
+        "institution_short_code": "TEST",  # Default test institution
+    }
+
+    # Verify magic word
+    verify_response = test_app.post(
+        "/api/v1/auth/verify-magic-word",
+        json={
+            "magic_word": user_data["magic_word"],
+            "institution_short_code": user_data["institution_short_code"],
+        },
+    )
+    assert verify_response.status_code == 200, (
+        f"Failed to verify magic word: {verify_response.status_code} - {verify_response.text}"
+    )
+    magic_word_body = verify_response.json()
+    user_data["reg_token"] = magic_word_body["token"]
+
+    # Register user
+    register_response = test_app.post(
+        "/api/v1/auth/register",
+        json={
+            "identity": user_data["username"],
+            "password": user_data["password"],
+            "passwordConfirm": user_data["password"],
+            "name": user_data["name"],
+            "registration_token": user_data["reg_token"],
+        },
+    )
+    assert register_response.status_code == 200, (
+        f"Failed to register user: {register_response.status_code} - {register_response.text}"
+    )
+    register_body = register_response.json()
+    if "record" in register_body:
+        user_data["user_record"] = register_body["record"]
+
+    # Login
+    login_response = test_app.post(
+        "/api/v1/auth/login",
+        json={
+            "identity": user_data["username"],
+            "password": user_data["password"],
+        },
+    )
+    assert login_response.status_code == 200, (
+        f"Failed to login: {login_response.status_code} - {login_response.text}"
+    )
+    # Cookies are automatically captured by TestClient, no need to return them
+    # user_data["cookies"] = dict(login_response.cookies)
+
+    return user_data
+
+
+def _clean_pocketbase_collections(admin_client: httpx.Client) -> None:
+    """Clean all test data from PocketBase collections.
+
+    This removes all records from user-created collections while preserving
+    system collections, the default test institution, and the service account.
+
+    Args:
+        admin_client: Authenticated PocketBase admin client
+    """
+    # Import here to avoid circular imports and to get the actual service account ID
+    from priotag.services.service_account import SERVICE_ACCOUNT_ID
+
+    # Clean priorities and vacation_days completely
+    for collection in ["priorities", "vacation_days"]:
+        try:
+            response = admin_client.get(
+                f"/api/collections/{collection}/records", params={"perPage": 500}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get("items", [])
+
+                for item in items:
+                    delete_response = admin_client.delete(
+                        f"/api/collections/{collection}/records/{item['id']}"
+                    )
+                    if delete_response.status_code not in [200, 204, 404]:
+                        print(
+                            f"Warning: Failed to delete {collection} record {item['id']}: {delete_response.status_code}"
+                        )
+        except Exception as e:
+            print(f"Warning: Error cleaning {collection}: {e}")
+
+    # Clean users but keep the service account
+    try:
+        response = admin_client.get(
+            "/api/collections/users/records",
+            params={"perPage": 500, "filter": f'username!="{SERVICE_ACCOUNT_ID}"'},
+        )
+        if response.status_code == 200:
+            data = response.json()
+            items = data.get("items", [])
+
+            for item in items:
+                delete_response = admin_client.delete(
+                    f"/api/collections/users/records/{item['id']}"
+                )
+                if delete_response.status_code not in [200, 204, 404]:
+                    print(
+                        f"Warning: Failed to delete user {item['id']}: {delete_response.status_code}"
+                    )
+    except Exception as e:
+        print(f"Warning: Error cleaning users: {e}")
+
+    # Clean institutions but keep the default TEST institution
+    # Use client-side filtering for more reliability
+    try:
+        response = admin_client.get(
+            "/api/collections/institutions/records",
+            params={"perPage": 500},
+        )
+        if response.status_code == 200:
+            data = response.json()
+            items = data.get("items", [])
+
+            for item in items:
+                # Skip deletion if this is the TEST institution
+                if item.get("short_code") == "TEST":
+                    continue
+
+                delete_response = admin_client.delete(
+                    f"/api/collections/institutions/records/{item['id']}"
+                )
+                if delete_response.status_code not in [200, 204, 404]:
+                    print(
+                        f"Warning: Failed to delete institution {item['id']}: {delete_response.status_code}"
+                    )
+    except Exception as e:
+        print(f"Warning: Error cleaning institutions: {e}")
+
+
+# ---------------------------------------------------------------------------- #
+#                                   FIXTURES                                   #
+# ---------------------------------------------------------------------------- #
+
+
 @pytest.fixture(scope="session")
 def redis_container() -> Generator[DockerContainer | None, None, None]:
     """Start a Redis container for integration tests (or skip if using docker-compose)."""
@@ -88,12 +267,24 @@ def redis_client(
 ) -> Generator[redis.Redis, None, None]:
     """Get a Redis client connected to the test container or docker-compose service."""
     if USE_DOCKER_SERVICES:
-        from priotag.services import redis_service
+        # In docker-compose mode, create an independent Redis client
+        # instead of using the shared redis_service singleton
+        import os
 
-        # Reset the singleton state to avoid stale cached URLs
-        redis_service._redis_service._redis_url = None
-        redis_service._redis_service._pool = None
-        client = redis_service.get_redis()
+        redis_pass = open("/run/secrets/redis_pass").read().strip()
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+
+        # Parse URL to get host/port
+        from urllib.parse import urlparse
+
+        parsed = urlparse(redis_url)
+
+        client = redis.Redis(
+            host=parsed.hostname or "redis",
+            port=parsed.port or 6379,
+            password=redis_pass,
+            decode_responses=True,
+        )
     else:
         # Connect to testcontainer
         assert redis_container is not None, "redis container not loaded"
@@ -113,13 +304,8 @@ def redis_client(
 
     yield client
 
-    if USE_DOCKER_SERVICES:
-        # Clean up the singleton
-        from priotag.services import redis_service
-
-        redis_service.close_redis()
-    else:
-        client.close()
+    # Close client connection
+    client.close()
 
 
 @pytest.fixture(scope="function")
@@ -128,126 +314,6 @@ def clean_redis(redis_client: redis.Redis) -> Generator[redis.Redis, None, None]
     redis_client.flushdb()
     yield redis_client
     redis_client.flushdb()
-
-
-def _setup_pocketbase(pocketbase_url: str) -> dict:
-    """Set up PocketBase with required data (admin, institution, service account).
-
-    Returns:
-        dict: Contains 'institution' record and 'institution_keypair' with private key for testing
-    """
-    superuser_login = "admin@example.com"
-    superuser_password = "admintest"
-
-    # Wait for PocketBase to be ready
-    for i in range(60):
-        try:
-            response = httpx.get(f"{pocketbase_url}/api/health", timeout=1.0)
-            if response.status_code == 200:
-                print("✓ PocketBase is ready")
-                break
-        except (httpx.RequestError, httpx.TimeoutException):
-            if i % 10 == 0:
-                print(f"  Still waiting... ({i}s)")
-            time.sleep(1)
-    else:
-        raise RuntimeError("PocketBase did not become ready in time")
-
-    client = httpx.Client(base_url=pocketbase_url, timeout=10.0)
-
-    # Authenticate as admin
-    print("Authenticating as admin...")
-    response = client.post(
-        "/api/collections/_superusers/auth-with-password",
-        json={
-            "identity": superuser_login,
-            "password": superuser_password,
-        },
-    )
-    assert response.status_code == 200, (
-        f"Failed to authenticate as admin: {response.status_code} - {response.text}"
-    )
-    token = response.json()["token"]
-    client.headers["Authorization"] = f"Bearer {token}"
-    print("✓ Authenticated as admin")
-
-    # Create default test institution
-    print("Creating default test institution...")
-
-    # Generate a test admin keypair for the institution (save for test use)
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
-
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-    )
-    public_pem = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    private_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-    admin_public_key = public_pem.decode()
-
-    institution_data = {
-        "name": "Test Institution",
-        "short_code": "TEST",
-        "registration_magic_word": "test",
-        "admin_public_key": admin_public_key,
-        "active": True,
-        "settings": {},
-    }
-    create_response = client.post(
-        "/api/collections/institutions/records",
-        json=institution_data,
-    )
-    assert create_response.status_code == 200, (
-        f"Failed to create institution: {create_response.status_code} - {create_response.text}"
-    )
-    institution = create_response.json()
-    print(
-        f"✓ Institution created (id={institution['id']}, short_code={institution['short_code']})"
-    )
-
-    # Create service account
-    from priotag.services import service_account
-
-    print(f"Creating service account ({service_account.SERVICE_ACCOUNT_ID})...")
-    service_response = client.post(
-        "/api/collections/users/records",
-        json={
-            "username": service_account.SERVICE_ACCOUNT_ID,
-            "password": service_account.SERVICE_ACCOUNT_PASSWORD,
-            "passwordConfirm": service_account.SERVICE_ACCOUNT_PASSWORD,
-            "role": "service",
-            "institution_id": institution[
-                "id"
-            ],  # Associate service account with institution
-        },
-    )
-    # Note: It's OK if this fails with 400 (duplicate) - the account may already exist
-    if service_response.status_code == 200:
-        print("✓ Service account created")
-    else:
-        print(
-            f"  Service account creation returned {service_response.status_code} (may already exist)"
-        )
-
-    client.close()
-
-    # Return institution and keypair for tests to use
-    return {
-        "institution": institution,
-        "institution_keypair": {
-            "private_key": private_key,
-            "public_pem": public_pem,
-            "private_pem": private_pem,
-        },
-    }
 
 
 @pytest.fixture(scope="session")
@@ -288,10 +354,12 @@ def pocketbase_container(redis_client) -> Generator[DockerContainer | None, None
     host = container.get_container_host_ip()
     port = container.get_exposed_port(8090)
     pocketbase_url = f"http://{host}:{port}"
+    os.environ["POCKETBASE_URL"] = pocketbase_url
 
     # Store setup result globally for access by fixtures
     global _POCKETBASE_SETUP_RESULT
-    _POCKETBASE_SETUP_RESULT = _setup_pocketbase(pocketbase_url)
+
+    _POCKETBASE_SETUP_RESULT = setup_pocketbase()
 
     yield container
 
@@ -347,79 +415,6 @@ def test_institution_keypair(pocketbase_container):
         return None
 
     return _POCKETBASE_SETUP_RESULT.get("institution_keypair")
-
-
-def _clean_pocketbase_collections(admin_client: httpx.Client) -> None:
-    """Clean all test data from PocketBase collections.
-
-    This removes all records from user-created collections while preserving
-    system collections, the default test institution, and the service account.
-
-    Args:
-        admin_client: Authenticated PocketBase admin client
-    """
-    # Clean priorities and vacation_days completely
-    for collection in ["priorities", "vacation_days"]:
-        try:
-            response = admin_client.get(
-                f"/api/collections/{collection}/records", params={"perPage": 500}
-            )
-            if response.status_code == 200:
-                data = response.json()
-                items = data.get("items", [])
-
-                for item in items:
-                    delete_response = admin_client.delete(
-                        f"/api/collections/{collection}/records/{item['id']}"
-                    )
-                    if delete_response.status_code not in [200, 204, 404]:
-                        print(
-                            f"Warning: Failed to delete {collection} record {item['id']}: {delete_response.status_code}"
-                        )
-        except Exception as e:
-            print(f"Warning: Error cleaning {collection}: {e}")
-
-    # Clean users but keep the service account (pb_service)
-    try:
-        response = admin_client.get(
-            "/api/collections/users/records",
-            params={"perPage": 500, "filter": 'username!="pb_service"'},
-        )
-        if response.status_code == 200:
-            data = response.json()
-            items = data.get("items", [])
-
-            for item in items:
-                delete_response = admin_client.delete(
-                    f"/api/collections/users/records/{item['id']}"
-                )
-                if delete_response.status_code not in [200, 204, 404]:
-                    print(
-                        f"Warning: Failed to delete user {item['id']}: {delete_response.status_code}"
-                    )
-    except Exception as e:
-        print(f"Warning: Error cleaning users: {e}")
-
-    # Clean institutions but keep the default TEST institution
-    try:
-        response = admin_client.get(
-            "/api/collections/institutions/records",
-            params={"perPage": 500, "filter": 'short_code!="TEST"'},
-        )
-        if response.status_code == 200:
-            data = response.json()
-            items = data.get("items", [])
-
-            for item in items:
-                delete_response = admin_client.delete(
-                    f"/api/collections/institutions/records/{item['id']}"
-                )
-                if delete_response.status_code not in [200, 204, 404]:
-                    print(
-                        f"Warning: Failed to delete institution {item['id']}: {delete_response.status_code}"
-                    )
-    except Exception as e:
-        print(f"Warning: Error cleaning institutions: {e}")
 
 
 @pytest.fixture(scope="function")
@@ -478,92 +473,6 @@ def reset_redis_singleton():
     redis_service.close_redis()
 
 
-def register_and_login_user(
-    test_app,
-    username: str | None = None,
-    password: str | None = None,
-    name: str | None = None,
-) -> dict:
-    """
-    Helper function to register and login a test user.
-
-    Args:
-        test_app: FastAPI TestClient
-        username: Username for the user (auto-generated if not provided)
-        password: Password for the user (default: "SecurePassword123!")
-        name: Display name for the user (default: "Test User")
-
-    Returns:
-        dict with:
-            - username: The username used
-            - password: The password used
-            - name: The display name used
-            - cookies: Authentication cookies from login
-            - user_record: The user record from registration
-    """
-    import secrets
-
-    # Generate unique username if not provided
-    if username is None:
-        unique_suffix = secrets.token_hex(4)
-        username = f"testuser_{unique_suffix}"
-
-    user_data: dict[str, str | dict] = {
-        "username": username,
-        "password": password or "SecurePassword123!",
-        "name": name or "Test User",
-        "magic_word": "test",  # Default test institution magic word
-        "institution_short_code": "TEST",  # Default test institution
-    }
-
-    # Verify magic word
-    verify_response = test_app.post(
-        "/api/v1/auth/verify-magic-word",
-        json={
-            "magic_word": user_data["magic_word"],
-            "institution_short_code": user_data["institution_short_code"],
-        },
-    )
-    assert verify_response.status_code == 200, (
-        f"Failed to verify magic word: {verify_response.status_code} - {verify_response.text}"
-    )
-    magic_word_body = verify_response.json()
-    user_data["reg_token"] = magic_word_body["token"]
-
-    # Register user
-    register_response = test_app.post(
-        "/api/v1/auth/register",
-        json={
-            "identity": user_data["username"],
-            "password": user_data["password"],
-            "passwordConfirm": user_data["password"],
-            "name": user_data["name"],
-            "registration_token": user_data["reg_token"],
-        },
-    )
-    assert register_response.status_code == 200, (
-        f"Failed to register user: {register_response.status_code} - {register_response.text}"
-    )
-    register_body = register_response.json()
-    if "record" in register_body:
-        user_data["user_record"] = register_body["record"]
-
-    # Login
-    login_response = test_app.post(
-        "/api/v1/auth/login",
-        json={
-            "identity": user_data["username"],
-            "password": user_data["password"],
-        },
-    )
-    assert login_response.status_code == 200, (
-        f"Failed to login: {login_response.status_code} - {login_response.text}"
-    )
-    user_data["cookies"] = dict(login_response.cookies)
-
-    return user_data
-
-
 @pytest.fixture(scope="function")
 def test_app(pocketbase_url: str, clean_redis: redis.Redis):
     """
@@ -595,8 +504,7 @@ def test_app(pocketbase_url: str, clean_redis: redis.Redis):
         app.dependency_overrides[get_redis] = get_test_redis
 
     # Create test client (this triggers lifespan startup)
-    # NOTE: raise_server_exceptions=False to avoid masking the actual HTTP error
-    client = TestClient(app, raise_server_exceptions=False)
+    client = TestClient(app)
 
     yield client
 

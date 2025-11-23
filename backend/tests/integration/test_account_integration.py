@@ -25,7 +25,6 @@ class TestAccountIntegration:
         """Test retrieving account information."""
         # Setup: Register and login
         auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
 
         # Get account info
         response = test_app.get("/api/v1/account/info")
@@ -56,7 +55,6 @@ class TestAccountIntegration:
 
         # Setup: Register and login
         auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
 
         # Create some priorities
         current_month = datetime.now().strftime("%Y-%m")
@@ -106,7 +104,6 @@ class TestAccountIntegration:
         """Test retrieving account data when user has no priorities."""
         # Setup: Register and login (but don't create priorities)
         auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
 
         # Get all account data
         response = test_app.get("/api/v1/account/data")
@@ -127,8 +124,7 @@ class TestAccountIntegration:
         from datetime import datetime
 
         # Setup: Register and login
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         # Create some priorities to ensure they're deleted
         current_month = datetime.now().strftime("%Y-%m")
@@ -174,8 +170,7 @@ class TestAccountIntegration:
         from datetime import datetime
 
         # Setup: Register and login
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         # Create priority
         current_month = datetime.now().strftime("%Y-%m")

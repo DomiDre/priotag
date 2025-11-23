@@ -1,7 +1,7 @@
 """
-Setup script for PocketBase in CI mode.
+Setup script for PocketBase in CI mode and testcontainers.
 
-This script initializes PocketBase with the magic word and service account.
+This script initializes PocketBase and initial contents account.
 It should be run from inside the backend container before tests.
 """
 
@@ -9,9 +9,13 @@ import os
 import time
 
 import httpx
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+from priotag.services import service_account
 
 
-def setup_pocketbase():
+def setup_pocketbase() -> dict:
     """Set up PocketBase with required data (institution and service account)."""
     pocketbase_url = os.getenv("POCKETBASE_URL", "http://pocketbase:8090")
     superuser_login = "admin@example.com"
@@ -56,11 +60,7 @@ def setup_pocketbase():
     # Create default test institution
     print("Creating default test institution...")
 
-    # Generate a test admin keypair for the institution
-    # Note: In docker-compose CI mode, the private key is not saved/accessible
-    # Integration tests that need to decrypt admin_wrapped_dek should use testcontainers mode
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
+    # Generate a test admin keypair for the institution (save for test use)
 
     private_key = rsa.generate_private_key(
         public_exponent=65537,
@@ -70,10 +70,12 @@ def setup_pocketbase():
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
     admin_public_key = public_pem.decode()
-
-    # Note: private_key is not persisted in docker-compose mode
-    # Tests that need it should use testcontainers with the test_institution_keypair fixture
 
     institution_data = {
         "name": "Test Institution",
@@ -97,7 +99,6 @@ def setup_pocketbase():
     )
 
     # Create service account
-    from priotag.services import service_account
 
     print(f"Creating service account ({service_account.SERVICE_ACCOUNT_ID})...")
     service_response = client.post(
@@ -109,19 +110,32 @@ def setup_pocketbase():
             "role": "service",
             "institution_id": institution[
                 "id"
-            ],  # Associate service account with institution
+            ],  # Associate service account with default TEST institution
         },
     )
-    if service_response.status_code != 200:
+    # Note: It's OK if this fails with 400 (duplicate) - the account may already exist
+    if service_response.status_code == 200:
+        print("✓ Service account created")
+    else:
         print(
             f"⚠ Service account creation returned {service_response.status_code}: {service_response.text}"
         )
         print("  (This may be OK if the account already exists)")
-    else:
-        print("✓ Service account created")
 
     client.close()
+
     print("\n✅ PocketBase setup complete!")
+    print(f"   Institution ID: {institution['id']}")
+    print(f"   Institution short_code: {institution['short_code']}")
+    # Return institution and keypair for tests to use
+    return {
+        "institution": institution,
+        "institution_keypair": {
+            "private_key": private_key,
+            "public_pem": public_pem,
+            "private_pem": private_pem,
+        },
+    }
 
 
 if __name__ == "__main__":

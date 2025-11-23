@@ -27,7 +27,6 @@ class TestAuthenticationIntegration:
         - Session creation in Redis
         - Cookie management
         """
-        print("!!!", pocketbase_url)
         # Register a new user with unique username to avoid conflicts
         # (needed when using docker-compose with persistent volumes between tests)
         unique_suffix = secrets.token_hex(4)
@@ -46,9 +45,9 @@ class TestAuthenticationIntegration:
                 "institution_short_code": "TEST",
             },
         )
-        assert verify_magic_word_response.status_code == 200, (
-            f"Failed to assert magic word: {verify_magic_word_response.status_code} - {verify_magic_word_response.text}"
-        )
+        assert (
+            verify_magic_word_response.status_code == 200
+        ), f"Failed to assert magic word: {verify_magic_word_response.status_code} - {verify_magic_word_response.text}"
         magic_word_body = verify_magic_word_response.json()
         assert "token" in magic_word_body
         registration_data["reg_token"] = magic_word_body["token"]
@@ -62,9 +61,9 @@ class TestAuthenticationIntegration:
                 "registration_token": registration_data["reg_token"],
             },
         )
-        assert register_response.status_code == 200, (
-            f"Registrierung fehlgeschlagen: {register_response.status_code} - {register_response.text}"
-        )
+        assert (
+            register_response.status_code == 200
+        ), f"Registrierung fehlgeschlagen: {register_response.status_code} - {register_response.text}"
 
         # Login via API
         login_response = test_app.post(
@@ -96,9 +95,9 @@ class TestAuthenticationIntegration:
         verify_response = test_app.get(
             "/api/v1/auth/verify",
         )
-        assert verify_response.status_code == 200, (
-            f"Verification failed: {verify_response.text}"
-        )
+        assert (
+            verify_response.status_code == 200
+        ), f"Verification failed: {verify_response.text}"
         data = verify_response.json()
         assert data["username"] == registration_data["username"]
         assert data["authenticated"] is True
@@ -273,9 +272,7 @@ class TestAuthenticationIntegration:
         assert old_password_login.status_code in [
             400,
             401,
-        ], (
-            f"Login with old password should fail but got {old_password_login.status_code}"
-        )
+        ], f"Login with old password should fail but got {old_password_login.status_code}"
 
         # Login with new password should work
         new_login_response = test_app.post(

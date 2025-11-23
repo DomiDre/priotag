@@ -36,7 +36,7 @@ class TestInstitutionDataIsolation:
         user_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_a@insta.edu",
+                "identity": "user_a",
                 "password": "PassA123!",
                 "passwordConfirm": "PassA123!",
                 "name": "User A",
@@ -51,7 +51,7 @@ class TestInstitutionDataIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a@insta.edu",
+                "identity": "admin_a",
                 "password": "AdminA123!",
                 "passwordConfirm": "AdminA123!",
                 "name": "Admin A",
@@ -73,7 +73,7 @@ class TestInstitutionDataIsolation:
         user_b_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_b@instb.edu",
+                "identity": "user_b",
                 "password": "PassB123!",
                 "passwordConfirm": "PassB123!",
                 "name": "User B",
@@ -98,7 +98,7 @@ class TestInstitutionDataIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a@insta.edu",
+                "identity": "admin_a",
                 "password": "AdminA123!",
                 "keep_logged_in": True,
             },
@@ -142,7 +142,7 @@ class TestInstitutionDataIsolation:
         user_b_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_b_prio@instb.edu",
+                "identity": "user_b_prio",
                 "password": "PassB789!",
                 "passwordConfirm": "PassB789!",
                 "name": "User B Priority",
@@ -185,7 +185,7 @@ class TestInstitutionDataIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a_prio@insta.edu",
+                "identity": "admin_a_prio",
                 "password": "AdminA789!",
                 "passwordConfirm": "AdminA789!",
                 "name": "Admin A Priority",
@@ -207,7 +207,7 @@ class TestInstitutionDataIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a_prio@insta.edu",
+                "identity": "admin_a_prio",
                 "password": "AdminA789!",
                 "keep_logged_in": True,
             },
@@ -251,7 +251,7 @@ class TestInstitutionDataIsolation:
         user_b_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_b_upd@instb.edu",
+                "identity": "user_b_upd",
                 "password": "PassB_upd!",
                 "passwordConfirm": "PassB_upd!",
                 "name": "User B Update",
@@ -267,7 +267,7 @@ class TestInstitutionDataIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a_upd@insta.edu",
+                "identity": "admin_a_upd",
                 "password": "AdminA_upd!",
                 "passwordConfirm": "AdminA_upd!",
                 "name": "Admin A Update",
@@ -289,7 +289,7 @@ class TestInstitutionDataIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a_upd@insta.edu",
+                "identity": "admin_a_upd",
                 "password": "AdminA_upd!",
                 "keep_logged_in": True,
             },
@@ -330,7 +330,7 @@ class TestInstitutionDataIsolation:
         user_b_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_b_del@instb.edu",
+                "identity": "user_b_del",
                 "password": "PassB_del!",
                 "passwordConfirm": "PassB_del!",
                 "name": "User B Delete",
@@ -346,7 +346,7 @@ class TestInstitutionDataIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a_del@insta.edu",
+                "identity": "admin_a_del",
                 "password": "AdminA_del!",
                 "passwordConfirm": "AdminA_del!",
                 "name": "Admin A Delete",
@@ -368,7 +368,7 @@ class TestInstitutionDataIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a_del@insta.edu",
+                "identity": "admin_a_del",
                 "password": "AdminA_del!",
                 "keep_logged_in": True,
             },
@@ -413,7 +413,7 @@ class TestInstitutionDataIsolation:
             test_app.post(
                 "/api/v1/auth/register-qr",
                 json={
-                    "identity": f"user_a{i}@insta.edu",
+                    "identity": f"user_a{i}",
                     "password": f"PassA{i}!",
                     "passwordConfirm": f"PassA{i}!",
                     "name": f"User A{i}",
@@ -428,7 +428,7 @@ class TestInstitutionDataIsolation:
             test_app.post(
                 "/api/v1/auth/register-qr",
                 json={
-                    "identity": f"user_b{i}@instb.edu",
+                    "identity": f"user_b{i}",
                     "password": f"PassB{i}!",
                     "passwordConfirm": f"PassB{i}!",
                     "name": f"User B{i}",
@@ -442,7 +442,7 @@ class TestInstitutionDataIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a_cnt@insta.edu",
+                "identity": "admin_a_cnt",
                 "password": "AdminA_cnt!",
                 "passwordConfirm": "AdminA_cnt!",
                 "name": "Admin A Count",
@@ -464,7 +464,7 @@ class TestInstitutionDataIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a_cnt@insta.edu",
+                "identity": "admin_a_cnt",
                 "password": "AdminA_cnt!",
                 "keep_logged_in": True,
             },
@@ -512,7 +512,7 @@ class TestSuperAdminAccess:
         user_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_a_sup@insta.edu",
+                "identity": "user_a_sup",
                 "password": "PassA_sup!",
                 "passwordConfirm": "PassA_sup!",
                 "name": "User A Super",
@@ -528,7 +528,7 @@ class TestSuperAdminAccess:
         user_b_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_b_sup@instb.edu",
+                "identity": "user_b_sup",
                 "password": "PassB_sup!",
                 "passwordConfirm": "PassB_sup!",
                 "name": "User B Super",
@@ -600,7 +600,7 @@ class TestSuperAdminAccess:
             test_app.post(
                 "/api/v1/auth/register-qr",
                 json={
-                    "identity": f"user_a_tot{i}@insta.edu",
+                    "identity": f"user_a_tot{i}",
                     "password": f"PassA_tot{i}!",
                     "passwordConfirm": f"PassA_tot{i}!",
                     "name": f"User A Tot {i}",
@@ -615,7 +615,7 @@ class TestSuperAdminAccess:
             test_app.post(
                 "/api/v1/auth/register-qr",
                 json={
-                    "identity": f"user_b_tot{i}@instb.edu",
+                    "identity": f"user_b_tot{i}",
                     "password": f"PassB_tot{i}!",
                     "passwordConfirm": f"PassB_tot{i}!",
                     "name": f"User B Tot {i}",
@@ -700,7 +700,7 @@ class TestVacationDaysIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a_vac@insta.edu",
+                "identity": "admin_a_vac",
                 "password": "AdminAVac!",
                 "passwordConfirm": "AdminAVac!",
                 "name": "Admin A Vacation",
@@ -722,7 +722,7 @@ class TestVacationDaysIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a_vac@insta.edu",
+                "identity": "admin_a_vac",
                 "password": "AdminAVac!",
                 "keep_logged_in": True,
             },
@@ -777,7 +777,7 @@ class TestVacationDaysIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a_del_vac@insta.edu",
+                "identity": "admin_a_del_vac",
                 "password": "AdminADelVac!",
                 "passwordConfirm": "AdminADelVac!",
                 "name": "Admin A Delete Vac",
@@ -799,7 +799,7 @@ class TestVacationDaysIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a_del_vac@insta.edu",
+                "identity": "admin_a_del_vac",
                 "password": "AdminADelVac!",
                 "keep_logged_in": True,
             },
@@ -836,7 +836,7 @@ class TestVacationDaysIsolation:
         admin_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_create_vac@inst.edu",
+                "identity": "admin_create_vac",
                 "password": "AdminCreateVac!",
                 "passwordConfirm": "AdminCreateVac!",
                 "name": "Admin Create Vac",
@@ -858,7 +858,7 @@ class TestVacationDaysIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_create_vac@inst.edu",
+                "identity": "admin_create_vac",
                 "password": "AdminCreateVac!",
                 "keep_logged_in": True,
             },
@@ -908,7 +908,7 @@ class TestPrioritiesHaveInstitutionId:
         user_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_prio@inst.edu",
+                "identity": "user_prio",
                 "password": "UserPrio123!",
                 "passwordConfirm": "UserPrio123!",
                 "name": "User Priority",
@@ -1004,7 +1004,7 @@ class TestUserVacationDaysIsolation:
         user_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_a_vac@insta.edu",
+                "identity": "user_a_vac",
                 "password": "UserAVac123!",
                 "passwordConfirm": "UserAVac123!",
                 "name": "User A Vac",
@@ -1070,7 +1070,7 @@ class TestUserVacationDaysIsolation:
         user_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_a_vac_single@insta.edu",
+                "identity": "user_a_vac_single",
                 "password": "UserAVacSingle123!",
                 "passwordConfirm": "UserAVacSingle123!",
                 "name": "User A Vac Single",
@@ -1137,7 +1137,7 @@ class TestUserVacationDaysIsolation:
         user_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_a_range@insta.edu",
+                "identity": "user_a_range",
                 "password": "UserARange123!",
                 "passwordConfirm": "UserARange123!",
                 "name": "User A Range",
@@ -1194,7 +1194,7 @@ class TestAdminPriorityUpdateDeleteIsolation:
         user_b_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_b_prio_update@instb.edu",
+                "identity": "user_b_prio_update",
                 "password": "UserBPrioUpdate123!",
                 "passwordConfirm": "UserBPrioUpdate123!",
                 "name": "User B Priority Update",
@@ -1237,7 +1237,7 @@ class TestAdminPriorityUpdateDeleteIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a_prio_update@insta.edu",
+                "identity": "admin_a_prio_update",
                 "password": "AdminAPrioUpdate123!",
                 "passwordConfirm": "AdminAPrioUpdate123!",
                 "name": "Admin A Priority Update",
@@ -1260,7 +1260,7 @@ class TestAdminPriorityUpdateDeleteIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a_prio_update@insta.edu",
+                "identity": "admin_a_prio_update",
                 "password": "AdminAPrioUpdate123!",
                 "keep_logged_in": True,
             },
@@ -1306,7 +1306,7 @@ class TestAdminPriorityUpdateDeleteIsolation:
         user_b_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_b_prio_delete@instb.edu",
+                "identity": "user_b_prio_delete",
                 "password": "UserBPrioDelete123!",
                 "passwordConfirm": "UserBPrioDelete123!",
                 "name": "User B Priority Delete",
@@ -1349,7 +1349,7 @@ class TestAdminPriorityUpdateDeleteIsolation:
         admin_a_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_a_prio_delete@insta.edu",
+                "identity": "admin_a_prio_delete",
                 "password": "AdminAPrioDelete123!",
                 "passwordConfirm": "AdminAPrioDelete123!",
                 "name": "Admin A Priority Delete",
@@ -1372,7 +1372,7 @@ class TestAdminPriorityUpdateDeleteIsolation:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_a_prio_delete@insta.edu",
+                "identity": "admin_a_prio_delete",
                 "password": "AdminAPrioDelete123!",
                 "keep_logged_in": True,
             },
@@ -1419,7 +1419,7 @@ class TestInputValidationFilterInjection:
         admin_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_filter@inst.edu",
+                "identity": "admin_filter",
                 "password": "AdminFilter123!",
                 "passwordConfirm": "AdminFilter123!",
                 "name": "Admin Filter",
@@ -1442,7 +1442,7 @@ class TestInputValidationFilterInjection:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_filter@inst.edu",
+                "identity": "admin_filter",
                 "password": "AdminFilter123!",
                 "keep_logged_in": True,
             },
@@ -1480,7 +1480,7 @@ class TestInputValidationFilterInjection:
         admin_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_id_inj@inst.edu",
+                "identity": "admin_id_inj",
                 "password": "AdminIdInj123!",
                 "passwordConfirm": "AdminIdInj123!",
                 "name": "Admin Id Injection",
@@ -1503,7 +1503,7 @@ class TestInputValidationFilterInjection:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_id_inj@inst.edu",
+                "identity": "admin_id_inj",
                 "password": "AdminIdInj123!",
                 "keep_logged_in": True,
             },
@@ -1539,7 +1539,7 @@ class TestInputValidationFilterInjection:
         admin_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_manual_inj@inst.edu",
+                "identity": "admin_manual_inj",
                 "password": "AdminManualInj123!",
                 "passwordConfirm": "AdminManualInj123!",
                 "name": "Admin Manual Injection",
@@ -1562,7 +1562,7 @@ class TestInputValidationFilterInjection:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_manual_inj@inst.edu",
+                "identity": "admin_manual_inj",
                 "password": "AdminManualInj123!",
                 "keep_logged_in": True,
             },
@@ -1612,7 +1612,7 @@ class TestInputValidationFilterInjection:
         admin_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_user_inj@inst.edu",
+                "identity": "admin_user_inj",
                 "password": "AdminUserInj123!",
                 "passwordConfirm": "AdminUserInj123!",
                 "name": "Admin User Injection",
@@ -1635,7 +1635,7 @@ class TestInputValidationFilterInjection:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_user_inj@inst.edu",
+                "identity": "admin_user_inj",
                 "password": "AdminUserInj123!",
                 "keep_logged_in": True,
             },
@@ -1669,7 +1669,7 @@ class TestInputValidationFilterInjection:
         admin_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "admin_month_val@inst.edu",
+                "identity": "admin_month_val",
                 "password": "AdminMonthVal123!",
                 "passwordConfirm": "AdminMonthVal123!",
                 "name": "Admin Month Validation",
@@ -1692,7 +1692,7 @@ class TestInputValidationFilterInjection:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_month_val@inst.edu",
+                "identity": "admin_month_val",
                 "password": "AdminMonthVal123!",
                 "keep_logged_in": True,
             },
@@ -1733,7 +1733,7 @@ class TestSecurityAudit4Fixes:
         register_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_pri_get@test.edu",
+                "identity": "user_pri_get",
                 "password": "TestPass123!",
                 "passwordConfirm": "TestPass123!",
                 "name": "Test User",
@@ -1775,7 +1775,7 @@ class TestSecurityAudit4Fixes:
         register_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_pri_del@test.edu",
+                "identity": "user_pri_del",
                 "password": "TestPass456!",
                 "passwordConfirm": "TestPass456!",
                 "name": "Test User Delete",
@@ -1820,7 +1820,7 @@ class TestSecurityAudit4Fixes:
         pocketbase_admin_client.post(
             "/api/collections/users/records",
             json={
-                "username": "admin_vd_get@inst.edu",
+                "username": "admin_vd_get",
                 "password": "AdminVD123!",
                 "passwordConfirm": "AdminVD123!",
                 "role": "institution_admin",
@@ -1836,7 +1836,7 @@ class TestSecurityAudit4Fixes:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_vd_get@inst.edu",
+                "identity": "admin_vd_get",
                 "password": "AdminVD123!",
                 "keep_logged_in": True,
             },
@@ -1874,7 +1874,7 @@ class TestSecurityAudit4Fixes:
         pocketbase_admin_client.post(
             "/api/collections/users/records",
             json={
-                "username": "admin_vd_put@inst.edu",
+                "username": "admin_vd_put",
                 "password": "AdminVDPut456!",
                 "passwordConfirm": "AdminVDPut456!",
                 "role": "institution_admin",
@@ -1890,7 +1890,7 @@ class TestSecurityAudit4Fixes:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_vd_put@inst.edu",
+                "identity": "admin_vd_put",
                 "password": "AdminVDPut456!",
                 "keep_logged_in": True,
             },
@@ -1931,7 +1931,7 @@ class TestSecurityAudit4Fixes:
         pocketbase_admin_client.post(
             "/api/collections/users/records",
             json={
-                "username": "admin_vd_del@inst.edu",
+                "username": "admin_vd_del",
                 "password": "AdminVDDel789!",
                 "passwordConfirm": "AdminVDDel789!",
                 "role": "institution_admin",
@@ -1947,7 +1947,7 @@ class TestSecurityAudit4Fixes:
         login_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "admin_vd_del@inst.edu",
+                "identity": "admin_vd_del",
                 "password": "AdminVDDel789!",
                 "keep_logged_in": True,
             },
@@ -1990,7 +1990,7 @@ class TestSecurityAudit4Fixes:
         register_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_pw_change@test.edu",
+                "identity": "user_pw_change",
                 "password": "OldPassword123!",
                 "passwordConfirm": "OldPassword123!",
                 "name": "Test User PW",
@@ -2012,7 +2012,7 @@ class TestSecurityAudit4Fixes:
         login2_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "user_pw_change@test.edu",
+                "identity": "user_pw_change",
                 "password": "OldPassword123!",
                 "keep_logged_in": True,
             },
@@ -2069,7 +2069,7 @@ class TestSecurityAudit4Fixes:
         login_new_pw_response = test_app.post(
             "/api/v1/auth/login",
             json={
-                "identity": "user_pw_change@test.edu",
+                "identity": "user_pw_change",
                 "password": "NewPassword456!",
                 "keep_logged_in": True,
             },
@@ -2096,7 +2096,7 @@ class TestSecurityAudit4Fixes:
         register_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_del_rate@test.edu",
+                "identity": "user_del_rate",
                 "password": "TestDelRate123!",
                 "passwordConfirm": "TestDelRate123!",
                 "name": "Test User Delete Rate",
@@ -2116,7 +2116,7 @@ class TestSecurityAudit4Fixes:
         register2_response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "user_del_rate@test.edu",
+                "identity": "user_del_rate",
                 "password": "TestDelRate456!",
                 "passwordConfirm": "TestDelRate456!",
                 "name": "Test User Delete Rate 2",

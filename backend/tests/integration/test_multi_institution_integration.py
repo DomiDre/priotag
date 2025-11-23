@@ -201,7 +201,7 @@ class TestUserRegistrationWithInstitutions:
         response = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "testuser@regtest.edu",
+                "identity": "testuser",
                 "password": "TestPass123!",
                 "passwordConfirm": "TestPass123!",
                 "name": "Test User",
@@ -244,7 +244,7 @@ class TestUserRegistrationWithInstitutions:
         reg_a = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "userA@insta.edu",
+                "identity": "userA",
                 "password": "PassA123!",
                 "passwordConfirm": "PassA123!",
                 "name": "User A",
@@ -253,15 +253,15 @@ class TestUserRegistrationWithInstitutions:
                 "keep_logged_in": False,
             },
         )
-        assert reg_a.status_code == 200, (
-            f"Registration A failed: {reg_a.status_code} - {reg_a.text}"
-        )
+        assert (
+            reg_a.status_code == 200
+        ), f"Registration A failed: {reg_a.status_code} - {reg_a.text}"
 
         # Register user in Institution B
         reg_b = test_app.post(
             "/api/v1/auth/register-qr",
             json={
-                "identity": "userB@instb.edu",
+                "identity": "userB",
                 "password": "PassB123!",
                 "passwordConfirm": "PassB123!",
                 "name": "User B",
@@ -270,9 +270,9 @@ class TestUserRegistrationWithInstitutions:
                 "keep_logged_in": False,
             },
         )
-        assert reg_b.status_code == 200, (
-            f"Registration B failed: {reg_b.status_code} - {reg_b.text}"
-        )
+        assert (
+            reg_b.status_code == 200
+        ), f"Registration B failed: {reg_b.status_code} - {reg_b.text}"
 
         # Verify users exist in different institutions
         users_a = pocketbase_admin_client.get(

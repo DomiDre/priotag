@@ -80,8 +80,7 @@ class TestAdminIntegration:
     ):
         """Test getting total user count."""
         # Setup: Create admin user and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Get total users
         response = test_app.get("/api/v1/admin/total-users")
@@ -96,8 +95,7 @@ class TestAdminIntegration:
     def test_get_total_users_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot get total user count."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         response = test_app.get("/api/v1/admin/total-users")
         assert response.status_code == 403
@@ -108,7 +106,6 @@ class TestAdminIntegration:
         """Test retrieving user submissions for a month."""
         # Setup: Create regular user with priorities
         user_auth = register_and_login_user(test_app)
-        test_app.cookies = user_auth["cookies"]
 
         current_month = datetime.now().strftime("%Y-%m")
         priority_data = [
@@ -129,8 +126,7 @@ class TestAdminIntegration:
         assert create_response.status_code == 200
 
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Get user submissions for current month
         response = test_app.get(f"/api/v1/admin/users/{current_month}")
@@ -159,8 +155,7 @@ class TestAdminIntegration:
     ):
         """Test retrieving submissions for a month with no data."""
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Get submissions for future month (no data)
         future_month = "2099-12"
@@ -175,8 +170,7 @@ class TestAdminIntegration:
     def test_get_user_submissions_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot get user submissions."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
         response = test_app.get(f"/api/v1/admin/users/{current_month}")
@@ -190,8 +184,7 @@ class TestAdminIntegration:
         user_auth = register_and_login_user(test_app)
 
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Get user info
         response = test_app.get(f"/api/v1/admin/users/info/{user_auth['username']}")
@@ -210,8 +203,7 @@ class TestAdminIntegration:
     ):
         """Test retrieving info for non-existent user."""
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Try to get non-existent user
         response = test_app.get("/api/v1/admin/users/info/nonexistent_user_12345")
@@ -222,7 +214,6 @@ class TestAdminIntegration:
         """Test that non-admin users cannot get user info."""
         # Setup: Regular user
         auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
 
         response = test_app.get(f"/api/v1/admin/users/info/{auth['username']}")
         assert response.status_code == 403
@@ -232,8 +223,7 @@ class TestAdminIntegration:
     ):
         """Test creating a manual priority entry."""
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         current_month = datetime.now().strftime("%Y-%m")
         identifier = f"paper_{secrets.token_hex(4)}"
@@ -270,8 +260,7 @@ class TestAdminIntegration:
     ):
         """Test updating an existing manual priority entry."""
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         current_month = datetime.now().strftime("%Y-%m")
         identifier = f"paper_{secrets.token_hex(4)}"
@@ -317,8 +306,7 @@ class TestAdminIntegration:
     ):
         """Test manual priority validation."""
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         current_month = datetime.now().strftime("%Y-%m")
 
@@ -347,8 +335,7 @@ class TestAdminIntegration:
     def test_create_manual_priority_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot create manual priorities."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
         response = test_app.post(
@@ -366,8 +353,7 @@ class TestAdminIntegration:
     ):
         """Test retrieving manual entries for a month."""
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         current_month = datetime.now().strftime("%Y-%m")
         identifier = f"paper_{secrets.token_hex(4)}"
@@ -408,8 +394,7 @@ class TestAdminIntegration:
         from datetime import datetime, timedelta
 
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Get entries for next month (no data, but within valid range)
         next_month = (datetime.now() + timedelta(days=32)).strftime("%Y-%m")
@@ -424,8 +409,7 @@ class TestAdminIntegration:
     def test_get_manual_entries_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot get manual entries."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
         response = test_app.get(f"/api/v1/admin/manual-entries/{current_month}")
@@ -436,8 +420,7 @@ class TestAdminIntegration:
     ):
         """Test deleting a manual entry."""
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         current_month = datetime.now().strftime("%Y-%m")
         identifier = f"paper_{secrets.token_hex(4)}"
@@ -469,8 +452,7 @@ class TestAdminIntegration:
     ):
         """Test deleting a non-existent manual entry."""
         # Setup: Create admin and login
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         current_month = datetime.now().strftime("%Y-%m")
         response = test_app.delete(
@@ -482,8 +464,7 @@ class TestAdminIntegration:
     def test_delete_manual_entry_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot delete manual entries."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
         response = test_app.delete(

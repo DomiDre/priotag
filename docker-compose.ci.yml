@@ -20,7 +20,7 @@ services:
     ports: []
     # No hot reload needed
     environment:
-      - ENV=test
+      - ENV=development
       - DEBUG=false
       - CORS_ORIGINS=http://localhost:5173,http://localhost:8000
       - REDIS_URL=redis://redis:6379

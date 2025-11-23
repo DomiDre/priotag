@@ -73,7 +73,6 @@ class TestVacationDaysIntegration:
         assert login_response.status_code == 200
 
         return {
-            "cookies": dict(login_response.cookies),
             "username": auth["username"],
             "password": auth["password"],
         }
@@ -86,7 +85,6 @@ class TestVacationDaysIntegration:
         """Test creating a single vacation day."""
         # Setup: Create admin user
         admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
 
         # Create vacation day
         future_date = (datetime.now() + timedelta(days=100)).strftime("%Y-%m-%d")
@@ -113,8 +111,7 @@ class TestVacationDaysIntegration:
     ):
         """Test that creating duplicate vacation day fails."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create vacation day
         future_date = (datetime.now() + timedelta(days=101)).strftime("%Y-%m-%d")
@@ -142,8 +139,7 @@ class TestVacationDaysIntegration:
     def test_create_vacation_day_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot create vacation days."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         future_date = (datetime.now() + timedelta(days=102)).strftime("%Y-%m-%d")
         response = test_app.post(
@@ -161,8 +157,7 @@ class TestVacationDaysIntegration:
     ):
         """Test bulk creating multiple vacation days."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create multiple vacation days
         base_date = datetime.now() + timedelta(days=110)
@@ -192,8 +187,7 @@ class TestVacationDaysIntegration:
     ):
         """Test bulk create skips duplicates."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create first day
         date1 = (datetime.now() + timedelta(days=120)).strftime("%Y-%m-%d")
@@ -227,8 +221,7 @@ class TestVacationDaysIntegration:
     def test_bulk_create_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot bulk create vacation days."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         future_date = (datetime.now() + timedelta(days=130)).strftime("%Y-%m-%d")
         response = test_app.post(
@@ -250,8 +243,7 @@ class TestVacationDaysIntegration:
     ):
         """Test getting all vacation days."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create some vacation days
         date1 = (datetime.now() + timedelta(days=140)).strftime("%Y-%m-%d")
@@ -281,8 +273,7 @@ class TestVacationDaysIntegration:
     ):
         """Test getting vacation days with year and type filters."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create vacation days with different types
         year = datetime.now().year + 1
@@ -320,8 +311,7 @@ class TestVacationDaysIntegration:
     def test_get_vacation_days_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot get all vacation days via admin endpoint."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         response = test_app.get("/api/v1/admin/vacation-days")
         assert response.status_code == 403
@@ -331,8 +321,7 @@ class TestVacationDaysIntegration:
     ):
         """Test getting a specific vacation day by date."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create vacation day
         future_date = (datetime.now() + timedelta(days=150)).strftime("%Y-%m-%d")
@@ -360,8 +349,7 @@ class TestVacationDaysIntegration:
     ):
         """Test getting non-existent vacation day."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         response = test_app.get("/api/v1/admin/vacation-days/2099-12-31")
 
@@ -370,8 +358,7 @@ class TestVacationDaysIntegration:
     def test_get_vacation_day_by_date_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot get vacation day via admin endpoint."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         response = test_app.get("/api/v1/admin/vacation-days/2025-12-25")
         assert response.status_code == 403
@@ -381,8 +368,7 @@ class TestVacationDaysIntegration:
     ):
         """Test updating a vacation day."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create vacation day
         future_date = (datetime.now() + timedelta(days=160)).strftime("%Y-%m-%d")
@@ -415,8 +401,7 @@ class TestVacationDaysIntegration:
     ):
         """Test partial update of vacation day (only description)."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create vacation day
         future_date = (datetime.now() + timedelta(days=161)).strftime("%Y-%m-%d")
@@ -446,8 +431,7 @@ class TestVacationDaysIntegration:
     ):
         """Test updating non-existent vacation day."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         response = test_app.put(
             "/api/v1/admin/vacation-days/2099-12-31",
@@ -459,8 +443,7 @@ class TestVacationDaysIntegration:
     def test_update_vacation_day_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot update vacation days."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         response = test_app.put(
             "/api/v1/admin/vacation-days/2025-12-25",
@@ -473,8 +456,7 @@ class TestVacationDaysIntegration:
     ):
         """Test deleting a vacation day."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         # Create vacation day
         future_date = (datetime.now() + timedelta(days=170)).strftime("%Y-%m-%d")
@@ -505,8 +487,7 @@ class TestVacationDaysIntegration:
     ):
         """Test deleting non-existent vacation day."""
         # Setup: Create admin user
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         response = test_app.delete("/api/v1/admin/vacation-days/2099-12-31")
 
@@ -515,8 +496,7 @@ class TestVacationDaysIntegration:
     def test_delete_vacation_day_unauthorized(self, test_app: TestClient):
         """Test that non-admin users cannot delete vacation days."""
         # Setup: Regular user
-        auth = register_and_login_user(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         response = test_app.delete("/api/v1/admin/vacation-days/2025-12-25")
         assert response.status_code == 403
@@ -528,8 +508,7 @@ class TestVacationDaysIntegration:
     ):
         """Test users can get vacation days (read-only)."""
         # Setup: Create vacation days as admin
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         future_date = (datetime.now() + timedelta(days=180)).strftime("%Y-%m-%d")
         test_app.post(
@@ -542,8 +521,7 @@ class TestVacationDaysIntegration:
         )
 
         # Setup: Create regular user
-        user_auth = register_and_login_user(test_app)
-        test_app.cookies = user_auth["cookies"]
+        register_and_login_user(test_app)
 
         # Get vacation days as user
         response = test_app.get("/api/v1/vacation-days")
@@ -564,8 +542,7 @@ class TestVacationDaysIntegration:
     ):
         """Test users can filter vacation days by year, month, type."""
         # Setup: Create vacation days as admin
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         year = datetime.now().year + 1
         test_app.post(
@@ -578,8 +555,7 @@ class TestVacationDaysIntegration:
         )
 
         # Setup: Create regular user
-        user_auth = register_and_login_user(test_app)
-        test_app.cookies = user_auth["cookies"]
+        register_and_login_user(test_app)
 
         # Filter by year and month
         response = test_app.get(
@@ -599,8 +575,7 @@ class TestVacationDaysIntegration:
     ):
         """Test users can get vacation days within date range."""
         # Setup: Create vacation days as admin
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         date1 = (datetime.now() + timedelta(days=190)).strftime("%Y-%m-%d")
         date2 = (datetime.now() + timedelta(days=195)).strftime("%Y-%m-%d")
@@ -614,8 +589,7 @@ class TestVacationDaysIntegration:
             assert create_response.status_code == 200
 
         # Setup: Create regular user
-        user_auth = register_and_login_user(test_app)
-        test_app.cookies = user_auth["cookies"]
+        register_and_login_user(test_app)
 
         # Get vacation days in range (date1 to date2 inclusive)
         response = test_app.get(
@@ -633,9 +607,9 @@ class TestVacationDaysIntegration:
             for day in data
             if day["date"].startswith(date1) or day["date"].startswith(date2)
         ]
-        assert len(matching_dates) >= 2, (
-            f"Expected at least 2 vacation days in range, got {len(data)}: {[d['date'] for d in data]}"
-        )
+        assert (
+            len(matching_dates) >= 2
+        ), f"Expected at least 2 vacation days in range, got {len(data)}: {[d['date'] for d in data]}"
 
         assert any(day["date"].startswith(date1) for day in data)
         assert any(day["date"].startswith(date2) for day in data)
@@ -644,8 +618,7 @@ class TestVacationDaysIntegration:
     def test_user_get_vacation_days_in_range_invalid_dates(self, test_app: TestClient):
         """Test date range validation."""
         # Setup: Create regular user
-        user_auth = register_and_login_user(test_app)
-        test_app.cookies = user_auth["cookies"]
+        register_and_login_user(test_app)
 
         # Invalid date format
         response = test_app.get(
@@ -660,8 +633,7 @@ class TestVacationDaysIntegration:
     ):
         """Test users can get specific vacation day by date."""
         # Setup: Create vacation day as admin
-        admin_auth = self._register_and_login_admin(test_app, pocketbase_admin_client)
-        test_app.cookies = admin_auth["cookies"]
+        self._register_and_login_admin(test_app, pocketbase_admin_client)
 
         future_date = (datetime.now() + timedelta(days=210)).strftime("%Y-%m-%d")
         create_response = test_app.post(
@@ -675,8 +647,7 @@ class TestVacationDaysIntegration:
         assert create_response.status_code == 200
 
         # Setup: Create regular user
-        user_auth = register_and_login_user(test_app)
-        test_app.cookies = user_auth["cookies"]
+        register_and_login_user(test_app)
 
         # Get by date as user
         response = test_app.get(f"/api/v1/vacation-days/{future_date}")
@@ -692,8 +663,7 @@ class TestVacationDaysIntegration:
     def test_user_get_vacation_day_not_found(self, test_app: TestClient):
         """Test user getting non-existent vacation day."""
         # Setup: Create regular user
-        user_auth = register_and_login_user(test_app)
-        test_app.cookies = user_auth["cookies"]
+        register_and_login_user(test_app)
 
         response = test_app.get("/api/v1/vacation-days/2099-12-31")
 

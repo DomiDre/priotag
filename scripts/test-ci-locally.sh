@@ -1,8 +1,35 @@
 #!/bin/bash
 # Script to test CI workflow locally before pushing
 # Run from project root: ./scripts/test-ci-locally.sh
+#
+# Options:
+#   --no-build, --skip-build    Skip rebuilding Docker images
 
 set -e
+
+# Parse arguments
+SKIP_BUILD=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-build|--skip-build)
+            SKIP_BUILD=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --no-build, --skip-build    Skip rebuilding Docker images"
+            echo "  -h, --help                  Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 # Change to project root directory (parent of scripts/)
 cd "$(dirname "$0")/.."
@@ -65,11 +92,16 @@ cleanup() {
 # Set trap to ensure cleanup happens even on error
 trap cleanup EXIT INT TERM
 
-# Build images
-echo "🏗️  Building Docker images..."
-docker compose -f docker-compose.dev.yml -f docker-compose.ci.yml build --no-cache backend pocketbase
-echo "✅ Images built"
-echo ""
+# Build images (unless --no-build was specified)
+if [ "$SKIP_BUILD" = false ]; then
+    echo "🏗️  Building Docker images..."
+    docker compose -f docker-compose.dev.yml -f docker-compose.ci.yml build --no-cache backend pocketbase
+    echo "✅ Images built"
+    echo ""
+else
+    echo "⏭️  Skipping Docker image build (using existing images)"
+    echo ""
+fi
 
 # Start dependencies
 echo "🚀 Starting PocketBase and Redis..."
