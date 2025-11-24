@@ -18,6 +18,7 @@
 	import LoadingIndicator from '$lib/components/LoadingIndicator.svelte';
 	import UserEditModal from '$lib/components/UserEditModal.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import QRCodeGeneratorModal from '$lib/components/QRCodeGeneratorModal.svelte';
 	import type { DecryptedData, UserDisplay } from '$lib/dashboard.types';
 	import { dayKeys } from '$lib/priorities.config';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -41,6 +42,7 @@
 	let keyUploaded = $state(false);
 	let showManualEntry = $state(false);
 	let showVacationDayModal = $state(false);
+	let showQRCodeModal = $state(false);
 	let searchQuery = $state('');
 	let keyFile = $state<File | null>(null);
 	let isLoading = $state(true);
@@ -738,6 +740,10 @@
 		showVacationDayModal = true;
 	}
 
+	function openQRCodeModal() {
+		showQRCodeModal = true;
+	}
+
 	// Fetch vacation days from API
 	async function fetchVacationDays() {
 		try {
@@ -1091,6 +1097,7 @@
 						onManualEntry={openManualEntry}
 						onExportExcel={exportToExcel}
 						onManageVacationDays={openVacationDayModal}
+						onGenerateQR={openQRCodeModal}
 					/>
 				</div>
 			</div>
@@ -1127,6 +1134,15 @@
 		onUpdate={handleUpdateVacationDay}
 		onDelete={handleDeleteVacationDay}
 		{vacationDays}
+	/>
+{/if}
+
+{#if showQRCodeModal}
+	<QRCodeGeneratorModal
+		bind:isOpen={showQRCodeModal}
+		onClose={() => {
+			showQRCodeModal = false;
+		}}
 	/>
 {/if}
 

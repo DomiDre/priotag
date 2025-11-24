@@ -159,6 +159,23 @@ export class ApiService {
 		});
 	}
 
+	async getQRRegistrationData(): Promise<{
+		success: boolean;
+		data: {
+			type: string;
+			version: string;
+			institution_name: string;
+			institution_short_code: string;
+			magic_word: string;
+			registration_url: string;
+		};
+		json_string: string;
+	}> {
+		return this.requestJson('/admin/institution/qr-data', {
+			method: 'GET'
+		});
+	}
+
 	// Super Admin - Institution Management
 	async listAllInstitutions(): Promise<InstitutionDetailResponse[]> {
 		return this.requestJson('/admin/super/institutions', {

@@ -1,5 +1,6 @@
 """API routes for institution management"""
 
+import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -246,3 +247,58 @@ async def update_institution_magic_word(
     except Exception as e:
         logger.error(f"Error updating magic word: {e}")
         raise HTTPException(status_code=500, detail="Error updating magic word") from e
+
+
+@router.get("/admin/institution/qr-data")
+async def get_qr_registration_data(
+    session: SessionInfo = Depends(verify_token),
+    token: str = Depends(get_current_token),
+):
+    """
+    Get QR code registration data for the current institution.
+
+    This endpoint returns the data needed to generate a QR code for user registration.
+    The QR code contains the institution's short code and magic word, which can be
+    scanned by users to pre-fill the registration form.
+
+    Only institution admins can access this endpoint.
+    """
+    # Only institution_admin and super_admin can use this endpoint
+    if session.role not in ["institution_admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403,
+            detail="This endpoint is for institution admins only",
+        )
+
+    if not session.institution_id:
+        raise HTTPException(
+            status_code=400, detail="User is not associated with an institution"
+        )
+
+    try:
+        institution = await InstitutionService.get_institution(
+            session.institution_id, auth_token=token
+        )
+
+        # Return data formatted for QR code generation
+        qr_data = {
+            "type": "priotag_registration",
+            "version": "1.0",
+            "institution_name": institution.name,
+            "institution_short_code": institution.short_code,
+            "magic_word": institution.registration_magic_word,
+            "registration_url": f"/register?institution={institution.short_code}",
+        }
+
+        return {
+            "success": True,
+            "data": qr_data,
+            "json_string": json.dumps(qr_data),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching QR registration data: {e}")
+        raise HTTPException(
+            status_code=500, detail="Error fetching QR registration data"
+        ) from e

@@ -2,6 +2,7 @@
 	import Plus from 'virtual:icons/mdi/plus';
 	import Download from 'virtual:icons/mdi/download';
 	import Calendar from 'virtual:icons/mdi/calendar';
+	import QrCode from 'virtual:icons/mdi/qrcode';
 	import type { Stats } from '$lib/dashboard.types';
 
 	interface Props {
@@ -11,6 +12,7 @@
 		onManualEntry: () => void;
 		onExportExcel: () => void;
 		onManageVacationDays: () => void;
+		onGenerateQR: () => void;
 	}
 
 	let {
@@ -19,7 +21,8 @@
 		decryptedUsersCount,
 		onManualEntry,
 		onExportExcel,
-		onManageVacationDays
+		onManageVacationDays,
+		onGenerateQR
 	}: Props = $props();
 </script>
 
@@ -30,6 +33,15 @@
 	>
 		<h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
 		<div class="space-y-3">
+			<button
+				type="button"
+				class="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 font-semibold text-white shadow-lg transition-all hover:scale-105"
+				onclick={onGenerateQR}
+			>
+				<QrCode class="h-5 w-5" />
+				QR-Code Erstellen
+			</button>
+
 			<button
 				type="button"
 				class="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-3 font-semibold text-white shadow-lg transition-all hover:scale-105"
