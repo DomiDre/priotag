@@ -73,18 +73,8 @@ export class ApiService {
 	}
 
 	// ==================== Institutions ====================
-
-	async getInstitutions() {
-		return this.requestJson('/institutions', {
-			method: 'GET'
-		});
-	}
-
-	async getInstitutionByShortCode(shortCode: string) {
-		return this.requestJson(`/institutions/${shortCode}`, {
-			method: 'GET'
-		});
-	}
+	// Note: Public institution listing removed for security reasons.
+	// Institutions are now selected via URL parameters in registration links.
 
 	// ==================== Authentication ====================
 

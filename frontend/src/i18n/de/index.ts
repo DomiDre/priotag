@@ -103,7 +103,26 @@ const de = {
 			creating: 'Erstelle Account...',
 			createAccount: 'Account erstellen',
 			alreadyHaveAccount: 'Haben Sie bereits einen Account?',
-			clickToLogin: 'Hier klicken zum einloggen.'
+			clickToLogin: 'Hier klicken zum einloggen.',
+			// Registration info page
+			infoTitle: 'Registrierungsinformationen',
+			infoHeading: 'Wie registrieren',
+			infoDescription:
+				'Um einen Account zu erstellen, benötigen Sie einen Registrierungslink von Ihrem Institutionsadministrator.',
+			infoStepsTitle: 'Registrierungsmethoden:',
+			infoStep1Title: 'QR-Code (Empfohlen)',
+			infoStep1Description:
+				'Scannen Sie den von Ihrer Institution bereitgestellten QR-Code, um sich automatisch zu registrieren.',
+			infoStep2Title: 'Registrierungslink',
+			infoStep2Description:
+				'Verwenden Sie den Registrierungslink, den Ihnen Ihr Institutionsadministrator gesendet hat.',
+			infoStep3Title: 'Administrator kontaktieren',
+			infoStep3Description:
+				'Wenn Sie keinen Registrierungslink haben, kontaktieren Sie bitte Ihren Institutionsadministrator.',
+			infoWhyTitle: 'Warum benötige ich das?',
+			infoWhyDescription:
+				'Aus Sicherheits- und Datenschutzgründen ist die Registrierung nur mit einem gültigen Link von Ihrer Institution möglich. Dies stellt sicher, dass nur autorisierte Benutzer Zugang zum System haben.',
+			infoBackToLogin: '← Zurück zum Login'
 		},
 		logout: 'Abmelden',
 		reauth: {

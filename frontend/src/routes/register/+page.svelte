@@ -13,14 +13,13 @@
 	let fullName = $state('');
 	let magicWord = $state('');
 	let institutionShortCode = $state('');
-	let institutions = $state<Array<{ id: string; name: string; short_code: string }>>([]);
-	let loadingInstitutions = $state(false);
 	let keepLoggedIn = $state(false);
 	let error = $state('');
 	let loading = $state(false);
 	let registrationToken = $state('');
 	let magicWordVerified = $state(false);
 	let isQRMode = $state(false); // Track if using QR code registration
+	let missingInstitution = $state(false); // Track if institution parameter is missing
 
 	$effect(() => {
 		if ($isAuthenticated) {
@@ -28,34 +27,26 @@
 		}
 	});
 
-	// Load institutions on mount
-	$effect(() => {
-		async function loadInstitutions() {
-			loadingInstitutions = true;
-			try {
-				const data = await apiService.getInstitutions();
-				institutions = data;
-				// If only one institution, auto-select it
-				if (institutions.length === 1) {
-					institutionShortCode = institutions[0].short_code;
-				}
-			} catch (err) {
-				console.error('Failed to load institutions:', err);
-				error = 'Failed to load institutions. Please refresh the page.';
-			} finally {
-				loadingInstitutions = false;
-			}
-		}
-		loadInstitutions();
-	});
-
-	// Check for magic word and institution in URL query parameters (QR code flow)
+	// Check for magic word and institution in URL query parameters
 	$effect(() => {
 		const magicFromUrl = $page.url.searchParams.get('magic');
 		const institutionFromUrl = $page.url.searchParams.get('institution');
-		if (magicFromUrl && institutionFromUrl) {
+
+		// Require institution parameter - redirect to info page if missing
+		if (!institutionFromUrl) {
+			missingInstitution = true;
+			// Redirect to info page after a brief moment to show error
+			setTimeout(() => {
+				goto('/register-info');
+			}, 2000);
+			return;
+		}
+
+		institutionShortCode = institutionFromUrl;
+
+		// If magic word is also provided (QR code flow), auto-fill and verify
+		if (magicFromUrl) {
 			magicWord = magicFromUrl;
-			institutionShortCode = institutionFromUrl;
 			magicWordVerified = true;
 			isQRMode = true;
 		}
@@ -65,13 +56,6 @@
 		event.preventDefault();
 		error = '';
 		loading = true;
-
-		// Validate institution selection
-		if (!institutionShortCode) {
-			error = 'Please select an institution';
-			loading = false;
-			return;
-		}
 
 		try {
 			const data = await apiService.verifyMagicWord(magicWord, institutionShortCode);
@@ -176,7 +160,25 @@
 
 		<!-- Main Card -->
 		<div class="mx-auto max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800">
-			{#if !magicWordVerified}
+			{#if missingInstitution}
+				<!-- Missing Institution Error -->
+				<div class="text-center">
+					<div
+						class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20"
+					>
+						<span class="text-3xl">⚠️</span>
+					</div>
+					<h2 class="mb-4 text-xl font-semibold text-gray-800 dark:text-white">
+						Missing Registration Link
+					</h2>
+					<p class="mb-4 text-gray-600 dark:text-gray-300">
+						You need a valid registration link from your institution to register.
+					</p>
+					<p class="text-sm text-gray-500 dark:text-gray-400">
+						Redirecting to registration information...
+					</p>
+				</div>
+			{:else if !magicWordVerified}
 				<!-- Magic Word Form -->
 				<form class="space-y-6" onsubmit={handleMagicWord}>
 					<div class="mb-4 text-center">
@@ -192,53 +194,6 @@
 							{$LL.auth.register.magicWordInfo()}
 						</p>
 					</div>
-
-					<!-- Institution Selection (only if not in QR mode or not set from URL) -->
-					{#if !isQRMode || !institutionShortCode}
-						<div>
-							<label
-								for="institution"
-								class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-							>
-								Institution
-							</label>
-							{#if loadingInstitutions}
-								<div
-									class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-700"
-								>
-									<span class="animate-spin">⟳</span> Loading institutions...
-								</div>
-							{:else if institutions.length === 0}
-								<div
-									class="mt-1 block w-full rounded-md border border-red-300 px-3 py-2 text-red-600 dark:border-red-600 dark:bg-gray-700"
-								>
-									No institutions available
-								</div>
-							{:else if institutions.length === 1}
-								<div
-									class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-								>
-									{institutions[0].name}
-								</div>
-							{:else}
-								<select
-									id="institution"
-									bind:value={institutionShortCode}
-									required
-									disabled={loading}
-									class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm
-										   focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none
-										   disabled:cursor-not-allowed disabled:opacity-50
-										   dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-								>
-									<option value="">Select your institution</option>
-									{#each institutions as institution (institution.short_code)}
-										<option value={institution.short_code}>{institution.name}</option>
-									{/each}
-								</select>
-							{/if}
-						</div>
-					{/if}
 
 					<div>
 						<label
@@ -284,7 +239,7 @@
 
 					<button
 						type="submit"
-						disabled={loading || !magicWord || !institutionShortCode || loadingInstitutions}
+						disabled={loading || !magicWord || !institutionShortCode}
 						class="w-full transform rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 px-8 py-4
 							   font-semibold text-white shadow-lg transition hover:scale-105
 							   disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"

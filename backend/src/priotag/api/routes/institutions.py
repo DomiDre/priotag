@@ -8,7 +8,6 @@ from priotag.models.auth import SessionInfo
 from priotag.models.institution import (
     CreateInstitutionRequest,
     InstitutionDetailResponse,
-    InstitutionResponse,
     UpdateInstitutionRequest,
     UpdateMagicWordRequest,
 )
@@ -22,56 +21,9 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # PUBLIC ENDPOINTS
 # ============================================================================
-
-
-@router.get("/institutions", response_model=list[InstitutionResponse])
-async def list_institutions():
-    """
-    List all active institutions.
-
-    This endpoint is public and returns basic information about active institutions.
-    Users need this information to select an institution during registration/login.
-    """
-    try:
-        institutions = await InstitutionService.list_institutions()
-
-        # Return only public fields
-        return [
-            InstitutionResponse(
-                id=inst.id,
-                name=inst.name,
-                short_code=inst.short_code,
-            )
-            for inst in institutions
-        ]
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error listing institutions: {e}")
-        raise HTTPException(status_code=500, detail="Error listing institutions") from e
-
-
-@router.get("/institutions/{short_code}", response_model=InstitutionResponse)
-async def get_institution_by_short_code(short_code: str):
-    """
-    Get institution information by short code.
-
-    This endpoint is public and returns basic information about an institution.
-    """
-    try:
-        institution = await InstitutionService.get_by_short_code(short_code)
-
-        # Return only public fields
-        return InstitutionResponse(
-            id=institution.id,
-            name=institution.name,
-            short_code=institution.short_code,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching institution {short_code}: {e}")
-        raise HTTPException(status_code=500, detail="Error fetching institution") from e
+# NOTE: Public institution listing endpoint removed for security/privacy reasons.
+# Institution information is now provided via registration URLs with institution
+# parameters. This prevents enumeration of all institutions using the system.
 
 
 # ============================================================================

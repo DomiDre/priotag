@@ -102,7 +102,26 @@ const en = {
 			creating: 'Creating account...',
 			createAccount: 'Create account',
 			alreadyHaveAccount: 'Already have an account?',
-			clickToLogin: 'Click here to log in.'
+			clickToLogin: 'Click here to log in.',
+			// Registration info page
+			infoTitle: 'Registration Information',
+			infoHeading: 'How to Register',
+			infoDescription:
+				'To create an account, you need a registration link from your institution administrator.',
+			infoStepsTitle: 'Registration Methods:',
+			infoStep1Title: 'QR Code (Recommended)',
+			infoStep1Description:
+				'Scan the QR code provided by your institution to register automatically.',
+			infoStep2Title: 'Registration Link',
+			infoStep2Description:
+				'Use the registration link sent to you by your institution administrator.',
+			infoStep3Title: 'Contact Administrator',
+			infoStep3Description:
+				"If you don't have a registration link, please contact your institution administrator.",
+			infoWhyTitle: 'Why do I need this?',
+			infoWhyDescription:
+				'For security and privacy reasons, registration is only possible with a valid link from your institution. This ensures only authorized users can access the system.',
+			infoBackToLogin: '← Back to login'
 		},
 		logout: 'Log out',
 		reauth: {
