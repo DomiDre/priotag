@@ -1,7 +1,7 @@
 """
-Setup script for PocketBase in CI mode.
+Setup script for PocketBase in CI mode and testcontainers.
 
-This script initializes PocketBase with the magic word and service account.
+This script initializes PocketBase and initial contents account.
 It should be run from inside the backend container before tests.
 """
 
@@ -9,14 +9,17 @@ import os
 import time
 
 import httpx
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+from priotag.services import service_account
 
 
-def setup_pocketbase():
-    """Set up PocketBase with required data (magic word and service account)."""
+def setup_pocketbase() -> dict:
+    """Set up PocketBase with required data (institution and service account)."""
     pocketbase_url = os.getenv("POCKETBASE_URL", "http://pocketbase:8090")
     superuser_login = "admin@example.com"
     superuser_password = "admintest"
-    magic_word = "test"
 
     print(f"Setting up PocketBase at {pocketbase_url}...")
 
@@ -54,25 +57,48 @@ def setup_pocketbase():
     client.headers["Authorization"] = f"Bearer {token}"
     print("✓ Authenticated as admin")
 
-    # Create magic word setting
-    print(f"Creating magic word setting (value='{magic_word}')...")
+    # Create default test institution
+    print("Creating default test institution...")
+
+    # Generate a test admin keypair for the institution (save for test use)
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    public_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    admin_public_key = public_pem.decode()
+
+    institution_data = {
+        "name": "Test Institution",
+        "short_code": "TEST",
+        "registration_magic_word": "test",
+        "admin_public_key": admin_public_key,
+        "active": True,
+        "settings": {},
+    }
     create_response = client.post(
-        "/api/collections/system_settings/records",
-        json={
-            "key": "registration_magic_word",
-            "value": magic_word,
-            "description": "Magic word required for user registration",
-            "last_updated_by": superuser_login,
-        },
+        "/api/collections/institutions/records",
+        json=institution_data,
     )
     if create_response.status_code != 200:
         raise RuntimeError(
-            f"Failed to create magic word: {create_response.status_code} - {create_response.text}"
+            f"Failed to create institution: {create_response.status_code} - {create_response.text}"
         )
-    print("✓ Magic word created")
+    institution = create_response.json()
+    print(
+        f"✓ Institution created (id={institution['id']}, short_code={institution['short_code']})"
+    )
 
     # Create service account
-    from priotag.services import service_account
 
     print(f"Creating service account ({service_account.SERVICE_ACCOUNT_ID})...")
     service_response = client.post(
@@ -82,18 +108,34 @@ def setup_pocketbase():
             "password": service_account.SERVICE_ACCOUNT_PASSWORD,
             "passwordConfirm": service_account.SERVICE_ACCOUNT_PASSWORD,
             "role": "service",
+            "institution_id": institution[
+                "id"
+            ],  # Associate service account with default TEST institution
         },
     )
-    if service_response.status_code != 200:
+    # Note: It's OK if this fails with 400 (duplicate) - the account may already exist
+    if service_response.status_code == 200:
+        print("✓ Service account created")
+    else:
         print(
             f"⚠ Service account creation returned {service_response.status_code}: {service_response.text}"
         )
         print("  (This may be OK if the account already exists)")
-    else:
-        print("✓ Service account created")
 
     client.close()
+
     print("\n✅ PocketBase setup complete!")
+    print(f"   Institution ID: {institution['id']}")
+    print(f"   Institution short_code: {institution['short_code']}")
+    # Return institution and keypair for tests to use
+    return {
+        "institution": institution,
+        "institution_keypair": {
+            "private_key": private_key,
+            "public_pem": public_pem,
+            "private_pem": private_pem,
+        },
+    }
 
 
 if __name__ == "__main__":

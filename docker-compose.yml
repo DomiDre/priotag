@@ -43,7 +43,6 @@ services:
       retries: 3
       start_period: 40s
     secrets:
-      - admin_public_key
       - pb_service_id
       - pb_service_password
       - server_cache_key
@@ -88,8 +87,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pocketbase.rule=Host(`pocketbase.priotag.de`)"
+      - "traefik.http.routers.pocketbase.entrypoints=websecure"
+      - "traefik.http.routers.pocketbase.tls=true"
+      - "traefik.http.routers.pocketbase.tls.certresolver=myresolver"
+      - "traefik.http.routers.pocketbase.tls.options=modern-tls@file"
+      - "traefik.http.routers.pocketbase.middlewares=admin-auth@file"
+      - "traefik.http.services.pocketbase.loadbalancer.server.port=8090"
     networks:
       - db-net
+      - proxy
     secrets:
       - pb_admin_email
       - pb_admin_password
@@ -201,8 +210,6 @@ volumes:
 
 
 secrets:
-  admin_public_key:
-    file: ./.secrets/admin_public_key.pem
   pb_admin_email:
     file: ./.secrets/pb_admin_email
   pb_admin_password:

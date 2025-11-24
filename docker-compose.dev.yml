@@ -30,7 +30,6 @@ services:
       redis:
         condition: service_healthy
     secrets:
-      - admin_public_key
       - pb_service_id
       - pb_service_password
       - server_cache_key
@@ -159,6 +158,7 @@ services:
     environment:
       - NODE_ENV=development
       - USE_DEV_HTTPS=false
+      - PUBLIC_BACKEND_URL=http://localhost:5173
     ports:
       - "5174:5173"  # Vite dev server
     depends_on:
@@ -166,8 +166,6 @@ services:
         condition: service_healthy
 
 secrets:
-  admin_public_key:
-    file: ./.secrets/admin_public_key.pem
   pb_admin_email:
     file: ./.secrets/pb_admin_email
   pb_admin_password:

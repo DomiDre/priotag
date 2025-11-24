@@ -11,7 +11,7 @@ Tests use mocked dependencies (no real PocketBase/Redis).
 """
 
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -37,6 +37,9 @@ class TestGetUserPriorities:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should return all priorities for authenticated user."""
+        # Use current month to ensure valid date
+        current_month = datetime.now().strftime("%Y-%m")
+
         # Prepare encrypted data
         weeks_data = {
             "weeks": [
@@ -60,7 +63,7 @@ class TestGetUserPriorities:
                 {
                     "id": "priority_1",
                     "userId": sample_session_info.id,
-                    "month": "2025-01",
+                    "month": current_month,
                     "encrypted_fields": encrypted_fields,
                     "identifier": "",
                     "manual": False,
@@ -84,7 +87,7 @@ class TestGetUserPriorities:
 
         # Verify
         assert len(result) == 1
-        assert result[0].month == "2025-01"
+        assert result[0].month == current_month
         assert len(result[0].weeks) == 1
         assert result[0].weeks[0].weekNumber == 1
         assert result[0].weeks[0].monday == 1
@@ -114,6 +117,8 @@ class TestGetUserPriorities:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should raise HTTPException when decryption fails."""
+        current_month = datetime.now().strftime("%Y-%m")
+
         # Mock PocketBase response with invalid encrypted data
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 200
@@ -122,7 +127,7 @@ class TestGetUserPriorities:
                 {
                     "id": "priority_1",
                     "userId": sample_session_info.id,
-                    "month": "2025-01",
+                    "month": current_month,
                     "encrypted_fields": "invalid_encrypted_data",
                     "identifier": "",
                     "manual": False,
@@ -200,6 +205,8 @@ class TestGetPriority:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should return priority for specific month."""
+        current_month = datetime.now().strftime("%Y-%m")
+
         weeks_data = {
             "weeks": [
                 {
@@ -221,7 +228,7 @@ class TestGetPriority:
                 {
                     "id": "priority_1",
                     "userId": sample_session_info.id,
-                    "month": "2025-01",
+                    "month": current_month,
                     "encrypted_fields": encrypted_fields,
                     "identifier": "",
                     "manual": False,
@@ -237,13 +244,13 @@ class TestGetPriority:
         with patch("priotag.api.routes.priorities.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             result = await get_priority(
-                month="2025-01",
+                month=current_month,
                 auth_data=sample_session_info,
                 token="test_token",
                 dek=test_dek,
             )
 
-        assert result.month == "2025-01"
+        assert result.month == current_month
         assert len(result.weeks) == 1
         assert result.weeks[0].weekNumber == 1
 
@@ -252,6 +259,8 @@ class TestGetPriority:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should return empty weeks list when priority not found."""
+        current_month = datetime.now().strftime("%Y-%m")
+
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {"items": []}
@@ -260,13 +269,13 @@ class TestGetPriority:
         with patch("priotag.api.routes.priorities.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             result = await get_priority(
-                month="2025-01",
+                month=current_month,
                 auth_data=sample_session_info,
                 token="test_token",
                 dek=test_dek,
             )
 
-        assert result.month == "2025-01"
+        assert result.month == current_month
         assert result.weeks == []
 
     @pytest.mark.asyncio
@@ -274,6 +283,8 @@ class TestGetPriority:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should raise 403 when user doesn't own the priority."""
+        current_month = datetime.now().strftime("%Y-%m")
+
         weeks_data: dict[str, list] = {"weeks": []}
         encrypted_fields = EncryptionManager.encrypt_fields(weeks_data, test_dek)
 
@@ -284,7 +295,7 @@ class TestGetPriority:
                 {
                     "id": "priority_1",
                     "userId": "different_user_id",
-                    "month": "2025-01",
+                    "month": current_month,
                     "encrypted_fields": encrypted_fields,
                     "identifier": "",
                     "manual": False,
@@ -301,7 +312,7 @@ class TestGetPriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await get_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                     dek=test_dek,
@@ -314,6 +325,8 @@ class TestGetPriority:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should raise 500 when decryption fails."""
+        current_month = datetime.now().strftime("%Y-%m")
+
         # Create properly base64 encoded but invalid encrypted data
         invalid_encrypted_data = base64.b64encode(b"invalid_encrypted_content").decode()
 
@@ -324,7 +337,7 @@ class TestGetPriority:
                 {
                     "id": "priority_1",
                     "userId": sample_session_info.id,
-                    "month": "2025-01",
+                    "month": current_month,
                     "encrypted_fields": invalid_encrypted_data,
                     "identifier": "",
                     "manual": False,
@@ -341,7 +354,7 @@ class TestGetPriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await get_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                     dek=test_dek,
@@ -354,6 +367,8 @@ class TestGetPriority:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should raise 404 when PocketBase returns 404."""
+        current_month = datetime.now().strftime("%Y-%m")
+
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 404
         mock_httpx_client.get = AsyncMock(return_value=mock_response)
@@ -362,7 +377,7 @@ class TestGetPriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await get_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                     dek=test_dek,
@@ -375,6 +390,8 @@ class TestGetPriority:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should raise HTTPException for non-200 responses."""
+        current_month = datetime.now().strftime("%Y-%m")
+
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 503
         mock_httpx_client.get = AsyncMock(return_value=mock_response)
@@ -383,7 +400,7 @@ class TestGetPriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await get_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                     dek=test_dek,
@@ -396,6 +413,8 @@ class TestGetPriority:
         """Should raise HTTPException when connection fails."""
         import httpx
 
+        current_month = datetime.now().strftime("%Y-%m")
+
         with patch("priotag.api.routes.priorities.httpx.AsyncClient") as mock_client:
             mock_async_client = AsyncMock()
             mock_async_client.get = AsyncMock(
@@ -405,7 +424,7 @@ class TestGetPriority:
 
             with pytest.raises(HTTPException) as exc_info:
                 await get_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                     dek=test_dek,
@@ -419,6 +438,8 @@ class TestGetPriority:
         self, sample_session_info, test_dek, mock_httpx_client
     ):
         """Should re-raise generic exception during decryption (after tracking error)."""
+        current_month = datetime.now().strftime("%Y-%m")
+
         weeks_data: dict[str, list[WeekPriority]] = {"weeks": []}
         encrypted_fields = EncryptionManager.encrypt_fields(weeks_data, test_dek)
 
@@ -429,7 +450,7 @@ class TestGetPriority:
                 {
                     "id": "priority_1",
                     "userId": sample_session_info.id,
-                    "month": "2025-01",
+                    "month": current_month,
                     "encrypted_fields": encrypted_fields,
                     "identifier": "",
                     "manual": False,
@@ -453,7 +474,7 @@ class TestGetPriority:
                 # Generic exceptions are re-raised, not wrapped in HTTPException
                 with pytest.raises(Exception) as exc_info:
                     await get_priority(
-                        month="2025-01",
+                        month=current_month,
                         auth_data=sample_session_info,
                         token="test_token",
                         dek=test_dek,
@@ -515,6 +536,9 @@ class TestSavePriority:
         self, sample_session_info, test_dek, mock_httpx_client, fake_redis
     ):
         """Should update existing priority."""
+        # Use next month to ensure weeks are not locked (editable)
+        next_month = (datetime.now() + timedelta(days=32)).strftime("%Y-%m")
+
         weeks = [
             WeekPriority(
                 weekNumber=1,
@@ -551,7 +575,7 @@ class TestSavePriority:
                 {
                     "id": "existing_priority_1",
                     "userId": sample_session_info.id,
-                    "month": "2025-01",
+                    "month": next_month,
                     "encrypted_fields": encrypted_fields,
                     "identifier": "",
                     "manual": False,
@@ -569,11 +593,6 @@ class TestSavePriority:
 
         mock_httpx_client.get = AsyncMock(return_value=check_response)
         mock_httpx_client.patch = AsyncMock(return_value=update_response)
-
-        # Use next month to ensure weeks are not locked (editable)
-        from dateutil.relativedelta import relativedelta
-
-        next_month = (datetime.now() + relativedelta(months=1)).strftime("%Y-%m")
 
         with patch("priotag.api.routes.priorities.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
@@ -760,6 +779,7 @@ class TestDeletePriority:
     ):
         """Should delete priority successfully."""
         # Mock check response
+        current_month = datetime.now().strftime("%Y-%m")
         check_response = MagicMock(spec=Response)
         check_response.status_code = 200
         check_response.json.return_value = {
@@ -767,7 +787,7 @@ class TestDeletePriority:
                 {
                     "id": "priority_1",
                     "userId": sample_session_info.id,
-                    "month": "2025-01",
+                    "month": current_month,
                 }
             ]
         }
@@ -782,7 +802,7 @@ class TestDeletePriority:
         with patch("priotag.api.routes.priorities.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             result = await delete_priority(
-                month="2025-01",
+                month=current_month,
                 auth_data=sample_session_info,
                 token="test_token",
             )
@@ -794,6 +814,7 @@ class TestDeletePriority:
         self, sample_session_info, mock_httpx_client
     ):
         """Should raise 400 when priority doesn't exist."""
+        current_month = datetime.now().strftime("%Y-%m")
         check_response = MagicMock(spec=Response)
         check_response.status_code = 200
         check_response.json.return_value = {"items": []}
@@ -804,7 +825,7 @@ class TestDeletePriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await delete_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                 )
@@ -816,6 +837,7 @@ class TestDeletePriority:
         self, sample_session_info, mock_httpx_client
     ):
         """Should raise 403 when user doesn't own the priority."""
+        current_month = datetime.now().strftime("%Y-%m")
         check_response = MagicMock(spec=Response)
         check_response.status_code = 200
         check_response.json.return_value = {
@@ -823,7 +845,7 @@ class TestDeletePriority:
                 {
                     "id": "priority_1",
                     "userId": "different_user_id",
-                    "month": "2025-01",
+                    "month": current_month,
                 }
             ]
         }
@@ -834,7 +856,7 @@ class TestDeletePriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await delete_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                 )
@@ -846,6 +868,7 @@ class TestDeletePriority:
         self, sample_session_info, mock_httpx_client
     ):
         """Should raise HTTPException when PocketBase returns error."""
+        current_month = datetime.now().strftime("%Y-%m")
         check_response = MagicMock(spec=Response)
         check_response.status_code = 200
         check_response.json.return_value = {
@@ -853,7 +876,7 @@ class TestDeletePriority:
                 {
                     "id": "priority_1",
                     "userId": sample_session_info.id,
-                    "month": "2025-01",
+                    "month": current_month,
                 }
             ]
         }
@@ -868,7 +891,7 @@ class TestDeletePriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await delete_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                 )
@@ -880,6 +903,7 @@ class TestDeletePriority:
         self, sample_session_info, mock_httpx_client
     ):
         """Should raise 404 when PocketBase returns 404."""
+        current_month = datetime.now().strftime("%Y-%m")
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 404
         mock_httpx_client.get = AsyncMock(return_value=mock_response)
@@ -888,7 +912,7 @@ class TestDeletePriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await delete_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                 )
@@ -900,6 +924,7 @@ class TestDeletePriority:
         self, sample_session_info, mock_httpx_client
     ):
         """Should raise HTTPException for non-200 responses."""
+        current_month = datetime.now().strftime("%Y-%m")
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 503
         mock_httpx_client.get = AsyncMock(return_value=mock_response)
@@ -908,7 +933,7 @@ class TestDeletePriority:
             mock_client.return_value.__aenter__.return_value = mock_httpx_client
             with pytest.raises(HTTPException) as exc_info:
                 await delete_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                 )
@@ -921,6 +946,7 @@ class TestDeletePriority:
         import httpx
 
         with patch("priotag.api.routes.priorities.httpx.AsyncClient") as mock_client:
+            current_month = datetime.now().strftime("%Y-%m")
             mock_async_client = AsyncMock()
             mock_async_client.get = AsyncMock(
                 side_effect=httpx.RequestError("Connection failed")
@@ -929,7 +955,7 @@ class TestDeletePriority:
 
             with pytest.raises(HTTPException) as exc_info:
                 await delete_priority(
-                    month="2025-01",
+                    month=current_month,
                     auth_data=sample_session_info,
                     token="test_token",
                 )

@@ -183,6 +183,16 @@ async def delete_account(
     3. Invalidate the session
     4. Clear authentication cookies
     """
+    # Rate limiting: Prevent rapid deletion attempts (1 per minute per user)
+    rate_limit_key = f"rate_limit:delete_account:{session.id}"
+    if redis_client.exists(rate_limit_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Zu viele Versuche. Bitte warten Sie eine Minute.",
+        )
+
+    redis_client.setex(rate_limit_key, 60, "deleting")
+
     # Service accounts cannot be deleted via this endpoint
     if session.is_admin:
         raise HTTPException(

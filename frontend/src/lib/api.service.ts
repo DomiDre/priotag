@@ -72,7 +72,21 @@ export class ApiService {
 		return response.json();
 	}
 
+	// ==================== Institutions ====================
+	// Note: Public institution listing removed for security reasons.
+	// Institutions are now selected via URL parameters in registration links.
+
 	// ==================== Authentication ====================
+
+	async verifyMagicWord(magicWord: string, institutionShortCode: string) {
+		return this.requestJson('/auth/verify-magic-word', {
+			method: 'POST',
+			body: JSON.stringify({
+				magic_word: magicWord,
+				institution_short_code: institutionShortCode
+			})
+		});
+	}
 
 	async login(identity: string, password: string, keepLoggedIn: boolean) {
 		const response = await this.requestJson('/auth/login', {
@@ -137,6 +151,7 @@ export class ApiService {
 		passwordConfirm: string;
 		name: string;
 		magic_word: string;
+		institution_short_code: string;
 		keep_logged_in: boolean;
 	}) {
 		const response = await this.requestJson('/auth/register-qr', {

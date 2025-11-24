@@ -100,6 +100,12 @@ async def get_priority(
 ):
     """Get a specific priority record by ID."""
 
+    # Validate month format to prevent filter injection
+    try:
+        validate_month_format_and_range(month)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
     user_id = auth_data.id
 
     try:
@@ -292,13 +298,14 @@ async def save_priority(
                     detail="Verschlüsselung der Daten fehlgeschlagen",
                 ) from e
 
-            # Create encrypted record
+            # Create encrypted record with institution_id
             encrypted_priority = {
                 "userId": user_id,
                 "month": month,
                 "encrypted_fields": encrypted_data,
                 "identifier": None,
                 "manual": False,
+                "institution_id": auth_data.institution_id,
             }
 
             track_priority_submission(month)
@@ -353,6 +360,12 @@ async def delete_priority(
     token: str = Depends(get_current_token),
 ):
     """Delete a priority record."""
+
+    # Validate month format to prevent filter injection
+    try:
+        validate_month_format_and_range(month)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
     user_id = auth_data.id
 

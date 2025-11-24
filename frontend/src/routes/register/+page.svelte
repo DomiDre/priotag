@@ -12,12 +12,14 @@
 	let passwordConfirm = $state('');
 	let fullName = $state('');
 	let magicWord = $state('');
+	let institutionShortCode = $state('');
 	let keepLoggedIn = $state(false);
 	let error = $state('');
 	let loading = $state(false);
 	let registrationToken = $state('');
 	let magicWordVerified = $state(false);
 	let isQRMode = $state(false); // Track if using QR code registration
+	let missingInstitution = $state(false); // Track if institution parameter is missing
 
 	$effect(() => {
 		if ($isAuthenticated) {
@@ -25,9 +27,24 @@
 		}
 	});
 
-	// Check for magic word in URL query parameters (QR code flow)
+	// Check for magic word and institution in URL query parameters
 	$effect(() => {
 		const magicFromUrl = $page.url.searchParams.get('magic');
+		const institutionFromUrl = $page.url.searchParams.get('institution');
+
+		// Require institution parameter - redirect to info page if missing
+		if (!institutionFromUrl) {
+			missingInstitution = true;
+			// Redirect to info page after a brief moment to show error
+			setTimeout(() => {
+				goto('/register-info');
+			}, 2000);
+			return;
+		}
+
+		institutionShortCode = institutionFromUrl;
+
+		// If magic word is also provided (QR code flow), auto-fill and verify
 		if (magicFromUrl) {
 			magicWord = magicFromUrl;
 			magicWordVerified = true;
@@ -41,20 +58,7 @@
 		loading = true;
 
 		try {
-			const response = await fetch(`${apiService.baseUrl}/auth/verify-magic-word`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ magic_word: magicWord })
-			});
-
-			if (!response.ok) {
-				const data = await response.json();
-				throw new Error(data.detail || $LL.auth.register.errorInvalidMagicWord());
-			}
-
-			const data = await response.json();
+			const data = await apiService.verifyMagicWord(magicWord, institutionShortCode);
 			registrationToken = data.token;
 			magicWordVerified = true;
 			error = '';
@@ -92,6 +96,7 @@
 					passwordConfirm: password,
 					name: fullName,
 					magic_word: magicWord,
+					institution_short_code: institutionShortCode,
 					keep_logged_in: keepLoggedIn
 				});
 			} else {
@@ -155,7 +160,25 @@
 
 		<!-- Main Card -->
 		<div class="mx-auto max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800">
-			{#if !magicWordVerified}
+			{#if missingInstitution}
+				<!-- Missing Institution Error -->
+				<div class="text-center">
+					<div
+						class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20"
+					>
+						<span class="text-3xl">⚠️</span>
+					</div>
+					<h2 class="mb-4 text-xl font-semibold text-gray-800 dark:text-white">
+						Missing Registration Link
+					</h2>
+					<p class="mb-4 text-gray-600 dark:text-gray-300">
+						You need a valid registration link from your institution to register.
+					</p>
+					<p class="text-sm text-gray-500 dark:text-gray-400">
+						Redirecting to registration information...
+					</p>
+				</div>
+			{:else if !magicWordVerified}
 				<!-- Magic Word Form -->
 				<form class="space-y-6" onsubmit={handleMagicWord}>
 					<div class="mb-4 text-center">
@@ -216,7 +239,7 @@
 
 					<button
 						type="submit"
-						disabled={loading || !magicWord}
+						disabled={loading || !magicWord || !institutionShortCode}
 						class="w-full transform rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 px-8 py-4
 							   font-semibold text-white shadow-lg transition hover:scale-105
 							   disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"

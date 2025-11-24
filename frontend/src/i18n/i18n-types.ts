@@ -364,6 +364,58 @@ type RootTranslation = {
 			 * H​i​e​r​ ​k​l​i​c​k​e​n​ ​z​u​m​ ​e​i​n​l​o​g​g​e​n​.
 			 */
 			clickToLogin: string
+			/**
+			 * R​e​g​i​s​t​r​i​e​r​u​n​g​s​i​n​f​o​r​m​a​t​i​o​n​e​n
+			 */
+			infoTitle: string
+			/**
+			 * W​i​e​ ​r​e​g​i​s​t​r​i​e​r​e​n
+			 */
+			infoHeading: string
+			/**
+			 * U​m​ ​e​i​n​e​n​ ​A​c​c​o​u​n​t​ ​z​u​ ​e​r​s​t​e​l​l​e​n​,​ ​b​e​n​ö​t​i​g​e​n​ ​S​i​e​ ​e​i​n​e​n​ ​R​e​g​i​s​t​r​i​e​r​u​n​g​s​l​i​n​k​ ​v​o​n​ ​I​h​r​e​m​ ​I​n​s​t​i​t​u​t​i​o​n​s​a​d​m​i​n​i​s​t​r​a​t​o​r​.
+			 */
+			infoDescription: string
+			/**
+			 * R​e​g​i​s​t​r​i​e​r​u​n​g​s​m​e​t​h​o​d​e​n​:
+			 */
+			infoStepsTitle: string
+			/**
+			 * Q​R​-​C​o​d​e​ ​(​E​m​p​f​o​h​l​e​n​)
+			 */
+			infoStep1Title: string
+			/**
+			 * S​c​a​n​n​e​n​ ​S​i​e​ ​d​e​n​ ​v​o​n​ ​I​h​r​e​r​ ​I​n​s​t​i​t​u​t​i​o​n​ ​b​e​r​e​i​t​g​e​s​t​e​l​l​t​e​n​ ​Q​R​-​C​o​d​e​,​ ​u​m​ ​s​i​c​h​ ​a​u​t​o​m​a​t​i​s​c​h​ ​z​u​ ​r​e​g​i​s​t​r​i​e​r​e​n​.
+			 */
+			infoStep1Description: string
+			/**
+			 * R​e​g​i​s​t​r​i​e​r​u​n​g​s​l​i​n​k
+			 */
+			infoStep2Title: string
+			/**
+			 * V​e​r​w​e​n​d​e​n​ ​S​i​e​ ​d​e​n​ ​R​e​g​i​s​t​r​i​e​r​u​n​g​s​l​i​n​k​,​ ​d​e​n​ ​I​h​n​e​n​ ​I​h​r​ ​I​n​s​t​i​t​u​t​i​o​n​s​a​d​m​i​n​i​s​t​r​a​t​o​r​ ​g​e​s​e​n​d​e​t​ ​h​a​t​.
+			 */
+			infoStep2Description: string
+			/**
+			 * A​d​m​i​n​i​s​t​r​a​t​o​r​ ​k​o​n​t​a​k​t​i​e​r​e​n
+			 */
+			infoStep3Title: string
+			/**
+			 * W​e​n​n​ ​S​i​e​ ​k​e​i​n​e​n​ ​R​e​g​i​s​t​r​i​e​r​u​n​g​s​l​i​n​k​ ​h​a​b​e​n​,​ ​k​o​n​t​a​k​t​i​e​r​e​n​ ​S​i​e​ ​b​i​t​t​e​ ​I​h​r​e​n​ ​I​n​s​t​i​t​u​t​i​o​n​s​a​d​m​i​n​i​s​t​r​a​t​o​r​.
+			 */
+			infoStep3Description: string
+			/**
+			 * W​a​r​u​m​ ​b​e​n​ö​t​i​g​e​ ​i​c​h​ ​d​a​s​?
+			 */
+			infoWhyTitle: string
+			/**
+			 * A​u​s​ ​S​i​c​h​e​r​h​e​i​t​s​-​ ​u​n​d​ ​D​a​t​e​n​s​c​h​u​t​z​g​r​ü​n​d​e​n​ ​i​s​t​ ​d​i​e​ ​R​e​g​i​s​t​r​i​e​r​u​n​g​ ​n​u​r​ ​m​i​t​ ​e​i​n​e​m​ ​g​ü​l​t​i​g​e​n​ ​L​i​n​k​ ​v​o​n​ ​I​h​r​e​r​ ​I​n​s​t​i​t​u​t​i​o​n​ ​m​ö​g​l​i​c​h​.​ ​D​i​e​s​ ​s​t​e​l​l​t​ ​s​i​c​h​e​r​,​ ​d​a​s​s​ ​n​u​r​ ​a​u​t​o​r​i​s​i​e​r​t​e​ ​B​e​n​u​t​z​e​r​ ​Z​u​g​a​n​g​ ​z​u​m​ ​S​y​s​t​e​m​ ​h​a​b​e​n​.
+			 */
+			infoWhyDescription: string
+			/**
+			 * ←​ ​Z​u​r​ü​c​k​ ​z​u​m​ ​L​o​g​i​n
+			 */
+			infoBackToLogin: string
 		}
 		/**
 		 * A​b​m​e​l​d​e​n
@@ -1561,6 +1613,58 @@ export type TranslationFunctions = {
 			 * Hier klicken zum einloggen.
 			 */
 			clickToLogin: () => LocalizedString
+			/**
+			 * Registrierungsinformationen
+			 */
+			infoTitle: () => LocalizedString
+			/**
+			 * Wie registrieren
+			 */
+			infoHeading: () => LocalizedString
+			/**
+			 * Um einen Account zu erstellen, benötigen Sie einen Registrierungslink von Ihrem Institutionsadministrator.
+			 */
+			infoDescription: () => LocalizedString
+			/**
+			 * Registrierungsmethoden:
+			 */
+			infoStepsTitle: () => LocalizedString
+			/**
+			 * QR-Code (Empfohlen)
+			 */
+			infoStep1Title: () => LocalizedString
+			/**
+			 * Scannen Sie den von Ihrer Institution bereitgestellten QR-Code, um sich automatisch zu registrieren.
+			 */
+			infoStep1Description: () => LocalizedString
+			/**
+			 * Registrierungslink
+			 */
+			infoStep2Title: () => LocalizedString
+			/**
+			 * Verwenden Sie den Registrierungslink, den Ihnen Ihr Institutionsadministrator gesendet hat.
+			 */
+			infoStep2Description: () => LocalizedString
+			/**
+			 * Administrator kontaktieren
+			 */
+			infoStep3Title: () => LocalizedString
+			/**
+			 * Wenn Sie keinen Registrierungslink haben, kontaktieren Sie bitte Ihren Institutionsadministrator.
+			 */
+			infoStep3Description: () => LocalizedString
+			/**
+			 * Warum benötige ich das?
+			 */
+			infoWhyTitle: () => LocalizedString
+			/**
+			 * Aus Sicherheits- und Datenschutzgründen ist die Registrierung nur mit einem gültigen Link von Ihrer Institution möglich. Dies stellt sicher, dass nur autorisierte Benutzer Zugang zum System haben.
+			 */
+			infoWhyDescription: () => LocalizedString
+			/**
+			 * ← Zurück zum Login
+			 */
+			infoBackToLogin: () => LocalizedString
 		}
 		/**
 		 * Abmelden

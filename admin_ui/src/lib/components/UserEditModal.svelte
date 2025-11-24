@@ -181,7 +181,7 @@
 								class="block w-full rounded-lg border border-gray-300 p-2.5 text-sm text-gray-900 focus:border-purple-500 focus:ring-purple-500 disabled:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-purple-500 dark:focus:ring-purple-500"
 							>
 								<option value="user">Benutzer</option>
-								<option value="admin">Administrator</option>
+								<option value="institution_admin">Administrator</option>
 							</select>
 						</div>
 

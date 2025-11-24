@@ -64,7 +64,7 @@ async def cleanup_inactive_users():
                     f"{POCKETBASE_URL}/api/collections/users/records",
                     headers=headers,
                     params={
-                        "filter": f'lastSeen < "{cutoff_iso}" && role != "admin" && role != "service"',
+                        "filter": f'lastSeen < "{cutoff_iso}" && role != "institution_admin" && role != "super_admin" && role != "service"',
                         "perPage": 50,  # Process in smaller batches
                         "page": page,
                     },

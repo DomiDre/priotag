@@ -9,17 +9,17 @@ Requirements:
     pip install qrcode[pil]
 
 Usage:
-    # Generate QR code with magic word only
-    python generate_qr_code.py "MyMagicWord123"
+    # Generate QR code with magic word and institution
+    python generate_qr_code.py "MyMagicWord123" "MIT"
 
-    # Generate QR code with URL containing magic word
-    python generate_qr_code.py "MyMagicWord123" --url "https://priotag.example.com"
+    # Generate QR code with URL containing magic word and institution
+    python generate_qr_code.py "MyMagicWord123" "MIT" --url "https://priotag.example.com"
 
     # Specify output file
-    python generate_qr_code.py "MyMagicWord123" --output registration_qr.png
+    python generate_qr_code.py "MyMagicWord123" "MIT" --output mit_registration_qr.png
 
     # Customize QR code size and error correction
-    python generate_qr_code.py "MyMagicWord123" --size 10 --error-correction H
+    python generate_qr_code.py "MyMagicWord123" "MIT" --size 10 --error-correction H
 """
 
 import argparse
@@ -42,6 +42,7 @@ ErrorCorrectionLevel = Literal["L", "M", "Q", "H"]
 
 def generate_qr_code(
     magic_word: str,
+    institution_short_code: str,
     output_file: str = "registration_qr.png",
     base_url: str | None = None,
     box_size: int = 10,
@@ -53,6 +54,7 @@ def generate_qr_code(
 
     Args:
         magic_word: The magic word for registration
+        institution_short_code: The institution short code (e.g., 'MIT', 'STANFORD')
         output_file: Path to save the QR code image
         base_url: Optional base URL for the frontend. If provided, creates a URL with magic word parameter
         box_size: Size of each box in pixels (default: 10)
@@ -76,16 +78,20 @@ def generate_qr_code(
 
     # Determine what to encode in the QR code
     if base_url:
-        # Option 1: Encode a full URL with magic word as parameter
+        # Option 1: Encode a full URL with magic word and institution as parameters
         # This allows direct navigation to registration page
         base_url = base_url.rstrip("/")
-        qr_data = f"{base_url}/register?magic={magic_word}"
+        qr_data = f"{base_url}/register?magic={magic_word}&institution={institution_short_code}"
         print(f"Generating QR code with URL: {qr_data}")
     else:
-        # Option 2: Encode just the magic word
-        # Simpler approach - users can use this in the registration form
-        qr_data = magic_word
+        # Option 2: Encode JSON with magic word and institution
+        # Users can use this in the registration form
+        qr_data = json.dumps({
+            "magic": magic_word,
+            "institution": institution_short_code
+        })
         print(f"Generating QR code with magic word: {magic_word}")
+        print(f"                   and institution: {institution_short_code}")
 
     qr.add_data(qr_data)
     qr.make(fit=True)
@@ -103,6 +109,7 @@ def generate_qr_code(
     metadata_file = Path(output_file).with_suffix(".json")
     metadata = {
         "magic_word": magic_word,
+        "institution_short_code": institution_short_code,
         "url": qr_data if base_url else None,
         "output_file": output_file,
         "box_size": box_size,
@@ -122,23 +129,28 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Basic usage - just magic word
-  %(prog)s "MyMagicWord123"
+  # Basic usage - magic word and institution
+  %(prog)s "MyMagicWord123" "MIT"
 
   # With URL for direct navigation
-  %(prog)s "MyMagicWord123" --url "https://priotag.example.com"
+  %(prog)s "MyMagicWord123" "MIT" --url "https://priotag.example.com"
 
   # Custom output file
-  %(prog)s "MyMagicWord123" -o institute_registration.png
+  %(prog)s "MyMagicWord123" "MIT" -o mit_registration.png
 
   # Large QR code with high error correction
-  %(prog)s "MyMagicWord123" --size 20 --error-correction H
+  %(prog)s "MyMagicWord123" "STANFORD" --size 20 --error-correction H
         """,
     )
 
     parser.add_argument(
         "magic_word",
         help="The magic word for registration",
+    )
+
+    parser.add_argument(
+        "institution",
+        help="Institution short code (e.g., 'MIT', 'STANFORD')",
     )
 
     parser.add_argument(
@@ -183,6 +195,7 @@ Examples:
 
     generate_qr_code(
         magic_word=args.magic_word,
+        institution_short_code=args.institution,
         output_file=args.output,
         base_url=args.url,
         box_size=args.size,

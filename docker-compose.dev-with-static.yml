@@ -32,7 +32,6 @@ services:
       redis:
         condition: service_healthy
     secrets:
-      - admin_public_key
       - pb_service_id
       - pb_service_password
 
@@ -114,8 +113,6 @@ volumes:
   frontend-node-modules:
 
 secrets:
-  admin_public_key:
-    file: ./.secrets/admin_public_key.pem
   pb_admin_email:
     file: ./.secrets/pb_admin_email
   pb_admin_password:

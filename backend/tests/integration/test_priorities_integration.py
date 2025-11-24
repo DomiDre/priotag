@@ -14,79 +14,23 @@ Covers:
 - Ownership verification
 """
 
-import re
-import secrets
 import time
 from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
+from .conftest import register_and_login_user
+
 
 @pytest.mark.integration
 class TestPriorityIntegration:
     """Integration tests for priority endpoints."""
 
-    def _register_and_login(self, test_app: TestClient) -> dict:
-        """Helper: Register a new user and return cookies + user data."""
-        unique_suffix = secrets.token_hex(4)
-        user_data = {
-            "username": f"testuser_{unique_suffix}",
-            "password": "SecurePassword123!",
-            "name": "Test User",
-            "magic_word": "test",
-        }
-
-        # Verify magic word
-        verify_response = test_app.post(
-            "/api/v1/auth/verify-magic-word",
-            json={"magic_word": user_data["magic_word"]},
-        )
-        assert verify_response.status_code == 200
-        magic_word_body = verify_response.json()
-        user_data["reg_token"] = magic_word_body["token"]
-
-        # Register user
-        register_response = test_app.post(
-            "/api/v1/auth/register",
-            json={
-                "identity": user_data["username"],
-                "password": user_data["password"],
-                "passwordConfirm": user_data["password"],
-                "name": user_data["name"],
-                "registration_token": user_data["reg_token"],
-            },
-        )
-        assert register_response.status_code == 200
-
-        # Login
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": user_data["username"],
-                "password": user_data["password"],
-            },
-        )
-        assert login_response.status_code == 200
-
-        # Extract cookies
-        set_cookie_headers = login_response.headers.get_list("set-cookie")
-        cookies = {}
-        for cookie_header in set_cookie_headers:
-            cookie_match = re.match(r"([^=]+)=([^;]+)", cookie_header)
-            if cookie_match:
-                cookies[cookie_match.group(1)] = cookie_match.group(2)
-
-        assert "auth_token" in cookies
-        assert "dek" in cookies
-
-        return {"cookies": cookies, "user_data": user_data}
-
     def test_create_priority_success(self, test_app: TestClient):
         """Test creating a new priority for current month."""
         # Setup: Register and login
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         # Get current month
         current_month = datetime.now().strftime("%Y-%m")
@@ -126,8 +70,7 @@ class TestPriorityIntegration:
     def test_get_priority_by_month(self, test_app: TestClient):
         """Test retrieving a priority for a specific month."""
         # Setup: Register, login, and create priority
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
 
@@ -161,8 +104,7 @@ class TestPriorityIntegration:
 
     def test_get_priority_not_found(self, test_app: TestClient):
         """Test retrieving a non-existent priority returns empty weeks."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         # Try to get priority for a month that doesn't exist
         future_month = (datetime.now() + timedelta(days=60)).strftime("%Y-%m")
@@ -176,8 +118,7 @@ class TestPriorityIntegration:
 
     def test_get_all_priorities(self, test_app: TestClient):
         """Test retrieving all priorities for authenticated user."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
         next_month = (datetime.now() + timedelta(days=32)).strftime("%Y-%m")
@@ -208,8 +149,7 @@ class TestPriorityIntegration:
 
     def test_update_existing_priority(self, test_app: TestClient):
         """Test updating an existing priority."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         # Use next month to ensure weeks haven't started yet
         next_month = (datetime.now() + timedelta(days=32)).strftime("%Y-%m")
@@ -262,8 +202,7 @@ class TestPriorityIntegration:
 
     def test_delete_priority(self, test_app: TestClient):
         """Test deleting a priority."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
 
@@ -299,8 +238,7 @@ class TestPriorityIntegration:
 
     def test_delete_nonexistent_priority(self, test_app: TestClient):
         """Test deleting a priority that doesn't exist."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         future_month = (datetime.now() + timedelta(days=60)).strftime("%Y-%m")
 
@@ -310,8 +248,7 @@ class TestPriorityIntegration:
 
     def test_rate_limiting(self, test_app: TestClient):
         """Test rate limiting - successful saves clear lock, failures keep it."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         # Part 1: Test that successful saves clear the lock immediately
         next_month = (datetime.now() + timedelta(days=32)).strftime("%Y-%m")
@@ -401,8 +338,7 @@ class TestPriorityIntegration:
 
     def test_month_validation_invalid_format(self, test_app: TestClient):
         """Test that invalid month format is rejected."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         priority_data = [{"weekNumber": 1, "monday": 1}]
 
@@ -415,8 +351,7 @@ class TestPriorityIntegration:
 
     def test_month_validation_out_of_range(self, test_app: TestClient):
         """Test that months outside allowed range are rejected."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         priority_data = [{"weekNumber": 1, "monday": 1}]
 
@@ -433,7 +368,7 @@ class TestPriorityIntegration:
         current_month = datetime.now().strftime("%Y-%m")
 
         # Try without cookies
-        test_app.cookies = {}
+        test_app.cookies.clear()
 
         # GET all priorities
         response1 = test_app.get("/api/v1/priorities")
@@ -456,14 +391,18 @@ class TestPriorityIntegration:
 
     def test_ownership_isolation(self, test_app: TestClient):
         """Test that users can only access their own priorities."""
-        # Create two users
-        auth1 = self._register_and_login(test_app)
-        auth2 = self._register_and_login(test_app)
+        # Create user 1 and save their cookies
+        register_and_login_user(test_app)
+        user1_cookies = dict(test_app.cookies)
+
+        # Create user 2 (this overwrites test_app.cookies)
+        register_and_login_user(test_app)
+        user2_cookies = dict(test_app.cookies)
 
         current_month = datetime.now().strftime("%Y-%m")
 
-        # User 1 creates a priority
-        test_app.cookies = auth1["cookies"]
+        # Switch back to user 1 to create a priority
+        test_app.cookies = user1_cookies
         priority_data = [
             {
                 "weekNumber": 1,
@@ -480,8 +419,8 @@ class TestPriorityIntegration:
         )
         assert response.status_code == 200
 
-        # User 2 should not see user 1's priorities
-        test_app.cookies = auth2["cookies"]
+        # Switch to user 2 - should not see user 1's priorities
+        test_app.cookies = user2_cookies
         response = test_app.get("/api/v1/priorities")
         assert response.status_code == 200
         data = response.json()
@@ -497,8 +436,7 @@ class TestPriorityIntegration:
 
     def test_encryption_flow(self, test_app: TestClient):
         """Test that data is encrypted in storage and decrypted on retrieval."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
 
@@ -554,8 +492,7 @@ class TestPriorityIntegration:
 
     def test_multiple_weeks_priority(self, test_app: TestClient):
         """Test creating and retrieving priorities with multiple weeks."""
-        auth = self._register_and_login(test_app)
-        test_app.cookies = auth["cookies"]
+        register_and_login_user(test_app)
 
         current_month = datetime.now().strftime("%Y-%m")
 

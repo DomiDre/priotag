@@ -27,7 +27,6 @@ class TestAuthenticationIntegration:
         - Session creation in Redis
         - Cookie management
         """
-        print("!!!", pocketbase_url)
         # Register a new user with unique username to avoid conflicts
         # (needed when using docker-compose with persistent volumes between tests)
         unique_suffix = secrets.token_hex(4)
@@ -41,7 +40,10 @@ class TestAuthenticationIntegration:
         # registration of user: magic word + register
         verify_magic_word_response = test_app.post(
             "/api/v1/auth/verify-magic-word",
-            json={"magic_word": registration_data["magic_word"]},
+            json={
+                "magic_word": registration_data["magic_word"],
+                "institution_short_code": "TEST",
+            },
         )
         assert verify_magic_word_response.status_code == 200, (
             f"Failed to assert magic word: {verify_magic_word_response.status_code} - {verify_magic_word_response.text}"
@@ -136,7 +138,10 @@ class TestAuthenticationIntegration:
         # Verify magic word and get registration token
         verify_magic_word_response = test_app.post(
             "/api/v1/auth/verify-magic-word",
-            json={"magic_word": registration_data["magic_word"]},
+            json={
+                "magic_word": registration_data["magic_word"],
+                "institution_short_code": "TEST",
+            },
         )
         assert verify_magic_word_response.status_code == 200
         magic_word_body = verify_magic_word_response.json()
@@ -199,7 +204,10 @@ class TestAuthenticationIntegration:
         # Verify magic word and register
         verify_magic_word_response = test_app.post(
             "/api/v1/auth/verify-magic-word",
-            json={"magic_word": registration_data["magic_word"]},
+            json={
+                "magic_word": registration_data["magic_word"],
+                "institution_short_code": "TEST",
+            },
         )
         assert verify_magic_word_response.status_code == 200
         magic_word_body = verify_magic_word_response.json()
@@ -312,7 +320,10 @@ class TestAuthenticationIntegration:
         # Verify magic word and register
         verify_magic_word_response = test_app.post(
             "/api/v1/auth/verify-magic-word",
-            json={"magic_word": registration_data["magic_word"]},
+            json={
+                "magic_word": registration_data["magic_word"],
+                "institution_short_code": "TEST",
+            },
         )
         assert verify_magic_word_response.status_code == 200
         magic_word_body = verify_magic_word_response.json()

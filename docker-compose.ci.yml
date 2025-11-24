@@ -20,7 +20,7 @@ services:
     ports: []
     # No hot reload needed
     environment:
-      - ENV=test
+      - ENV=development
       - DEBUG=false
       - CORS_ORIGINS=http://localhost:5173,http://localhost:8000
       - REDIS_URL=redis://redis:6379
@@ -55,8 +55,6 @@ services:
 # Override secrets to use test secrets directory
 # The SECRETS_DIR environment variable should be set when running this compose file
 secrets:
-  admin_public_key:
-    file: ${SECRETS_DIR:-.secrets}/admin_public_key.pem
   pb_admin_email:
     file: ${SECRETS_DIR:-.secrets}/pb_admin_email
   pb_admin_password:

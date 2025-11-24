@@ -64,15 +64,12 @@ def admin_rsa_keypair():
 
 
 @pytest.fixture
-def test_secrets_dir(tmp_path, admin_rsa_keypair):
+def test_secrets_dir(tmp_path):
     """Create temporary secrets directory with test secrets."""
     secrets_dir = tmp_path / "secrets"
     secrets_dir.mkdir()
 
-    # Write admin public key
-    (secrets_dir / "admin_public_key.pem").write_bytes(admin_rsa_keypair["public_pem"])
-
-    # Write other secrets
+    # Write secrets (admin_public_key no longer needed - it's per-institution now)
     (secrets_dir / "redis_pass").write_text("test_redis_password")
     (secrets_dir / "server_cache_key").write_text("test_cache_key_32_bytes_long_!!")
     (secrets_dir / "pb_service_id").write_text("test_service")
@@ -83,15 +80,11 @@ def test_secrets_dir(tmp_path, admin_rsa_keypair):
 
 
 @pytest.fixture(autouse=True)
-def mock_admin_key(monkeypatch, admin_rsa_keypair, tmp_path):
-    """Mock the admin public key file path for all tests."""
+def mock_encryption_secrets(monkeypatch, tmp_path):
+    """Mock encryption secrets for all tests."""
     # Create temporary secrets directory
     secrets_dir = tmp_path / "run" / "secrets"
     secrets_dir.mkdir(parents=True)
-
-    # Write admin public key
-    admin_key_file = secrets_dir / "admin_public_key.pem"
-    admin_key_file.write_bytes(admin_rsa_keypair["public_pem"])
 
     # Write server cache key
     cache_key_file = secrets_dir / "server_cache_key"
@@ -101,21 +94,18 @@ def mock_admin_key(monkeypatch, admin_rsa_keypair, tmp_path):
     redis_pass_file = secrets_dir / "redis_pass"
     redis_pass_file.write_text("test_redis_password")
 
-    # Mock the Path objects in EncryptionManager
+    # Mock the server cache key in EncryptionManager
     from priotag.services.encryption import EncryptionManager
 
-    # Save original values
-    original_admin_key = EncryptionManager.ADMIN_PUBLIC_KEY_PEM
+    # Save original value
     original_cache_key = EncryptionManager._SERVER_CACHE_KEY
 
-    # Set test values
-    EncryptionManager.ADMIN_PUBLIC_KEY_PEM = admin_rsa_keypair["public_pem"]
+    # Set test value
     EncryptionManager._SERVER_CACHE_KEY = b"test_cache_key_32_bytes_long_!!"
 
     yield
 
-    # Restore original values (important for integration tests)
-    EncryptionManager.ADMIN_PUBLIC_KEY_PEM = original_admin_key
+    # Restore original value (important for integration tests)
     EncryptionManager._SERVER_CACHE_KEY = original_cache_key
 
 
@@ -128,6 +118,7 @@ def sample_user_data():
         "email": "test@example.com",
         "emailVisibility": False,
         "role": "user",
+        "institution_id": "institution_123",
         "salt": base64.b64encode(b"test_salt_16bytes").decode(),
         "user_wrapped_dek": base64.b64encode(b"wrapped_dek_data").decode(),
         "admin_wrapped_dek": base64.b64encode(b"admin_wrapped_dek").decode(),
@@ -149,7 +140,8 @@ def sample_admin_data():
         "username": "admin",
         "email": "admin@example.com",
         "emailVisibility": False,
-        "role": "admin",
+        "role": "institution_admin",
+        "institution_id": "institution_123",
         "salt": base64.b64encode(b"admin_salt_16byt").decode(),
         "user_wrapped_dek": base64.b64encode(b"admin_wrapped_dek_data").decode(),
         "admin_wrapped_dek": base64.b64encode(b"admin_admin_wrapped").decode(),
@@ -160,6 +152,65 @@ def sample_admin_data():
         "collectionName": "users",
         "created": "2025-01-01T00:00:00Z",
         "updated": "2025-01-08T12:00:00Z",
+    }
+
+
+@pytest.fixture
+def sample_super_admin_data():
+    """Sample super admin user data for testing."""
+    return {
+        "id": "super_admin_789",
+        "username": "superadmin",
+        "email": "superadmin@example.com",
+        "emailVisibility": False,
+        "role": "super_admin",
+        "institution_id": None,
+        "salt": base64.b64encode(b"super_salt_16byt").decode(),
+        "user_wrapped_dek": base64.b64encode(b"super_wrapped_dek").decode(),
+        "admin_wrapped_dek": base64.b64encode(b"super_admin_wrap").decode(),
+        "encrypted_fields": base64.b64encode(b'{"name":"Super Admin"}').decode(),
+        "lastSeen": "2025-01-08T14:00:00Z",
+        "verified": True,
+        "collectionId": "users_collection_id",
+        "collectionName": "users",
+        "created": "2025-01-01T00:00:00Z",
+        "updated": "2025-01-08T14:00:00Z",
+    }
+
+
+@pytest.fixture
+def sample_institution_data():
+    """Sample institution data for testing."""
+    return {
+        "id": "institution_123",
+        "name": "Test University",
+        "short_code": "TEST_UNIV",
+        "registration_magic_word": "TestMagic123",
+        "admin_public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\n-----END PUBLIC KEY-----",
+        "settings": {},
+        "active": True,
+        "collectionId": "institutions_collection_id",
+        "collectionName": "institutions",
+        "created": "2025-01-01T00:00:00Z",
+        "updated": "2025-01-01T00:00:00Z",
+    }
+
+
+@pytest.fixture
+def sample_institution_data_2():
+    """Second sample institution for multi-institution testing."""
+    return {
+        "id": "institution_456",
+        "name": "Second University",
+        "short_code": "SECOND_UNIV",
+        "registration_magic_word": "SecondMagic456",
+        "admin_public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\n-----END PUBLIC KEY-----",
+        "settings": {},
+        "active": True,
+        "collectionId": "institutions_collection_id",
+        "collectionName": "institutions",
+        "created": "2025-01-02T00:00:00Z",
+        "updated": "2025-01-02T00:00:00Z",
     }
 
 
@@ -207,6 +258,8 @@ def sample_session_info():
         id="test_user_123",
         username="testuser",
         is_admin=False,
+        role="user",
+        institution_id="institution_123",
     )
 
 
@@ -219,6 +272,22 @@ def sample_admin_session_info():
         id="admin_user_456",
         username="admin",
         is_admin=True,
+        role="institution_admin",
+        institution_id="institution_123",
+    )
+
+
+@pytest.fixture
+def sample_super_admin_session_info():
+    """Sample super admin session info for testing."""
+    from priotag.models.auth import SessionInfo
+
+    return SessionInfo(
+        id="super_admin_789",
+        username="superadmin",
+        is_admin=True,
+        role="super_admin",
+        institution_id=None,
     )
 
 
@@ -283,6 +352,16 @@ def mock_httpx_client():
     mock.patch = AsyncMock()
     mock.delete = AsyncMock()
     return mock
+
+
+@pytest.fixture
+def client():
+    """Provide TestClient for API testing."""
+    from fastapi.testclient import TestClient
+
+    from priotag.main import app
+
+    return TestClient(app)
 
 
 @pytest.fixture(autouse=True)

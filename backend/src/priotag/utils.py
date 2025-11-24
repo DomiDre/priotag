@@ -219,8 +219,12 @@ async def verify_token(
 async def require_admin(
     session: SessionInfo = Depends(verify_token),
 ) -> SessionInfo:
-    """Dependency that requires admin role."""
-    if not session.is_admin:
+    """
+    Dependency that requires admin role.
+
+    Accepts: "institution_admin", "super_admin"
+    """
+    if session.role not in ["institution_admin", "super_admin"]:
         raise HTTPException(
             status_code=403,
             detail="Administratorrechte erforderlich",
@@ -228,13 +232,45 @@ async def require_admin(
     return session
 
 
+async def require_institution_admin(
+    session: SessionInfo = Depends(verify_token),
+) -> SessionInfo:
+    """
+    Dependency that requires institution admin or super admin role.
+    """
+    if session.role not in ["institution_admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Administratorrechte erforderlich",
+        )
+    return session
+
+
+async def require_super_admin(
+    session: SessionInfo = Depends(verify_token),
+) -> SessionInfo:
+    """
+    Dependency that requires super admin role.
+    """
+    if session.role != "super_admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Super-Administrator-Rechte erforderlich",
+        )
+    return session
+
+
 def extract_session_info_from_record(record: UsersResponse) -> SessionInfo:
     """Extract session info from PocketBase user record."""
-    is_admin = record.role == "admin"
+    # Check for admin roles
+    is_admin = record.role in ["institution_admin", "super_admin"]
+
     return SessionInfo(
         id=record.id,
         username=record.username,
         is_admin=is_admin,
+        role=record.role,
+        institution_id=record.institution_id,
     )
 
 

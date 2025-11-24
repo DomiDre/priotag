@@ -1,10 +1,8 @@
-import asyncio
 import getpass
 import sys
 
 import requests
 
-from priotag.services.magic_word import create_or_update_magic_word
 from priotag.services.pocketbase_service import POCKETBASE_URL
 from priotag.services.redis_service import get_redis
 from priotag.services.service_account import (
@@ -14,8 +12,6 @@ from priotag.services.service_account import (
 
 superuser_login = input("Enter superuser login: ")
 superuser_password = getpass.getpass()
-initial_magic_word = input("Enter initial magic word: ")
-
 redis_client = get_redis()
 
 try:
@@ -28,12 +24,6 @@ try:
     )
     response_body = pb_response.json()
     token = response_body["token"]
-
-    success = asyncio.run(
-        create_or_update_magic_word(
-            initial_magic_word, token, redis_client, superuser_login
-        )
-    )
 except Exception:
     sys.exit("Failed to login as superuser")
 

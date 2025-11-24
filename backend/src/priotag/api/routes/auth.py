@@ -35,7 +35,7 @@ from priotag.models.cookie import (
     COOKIE_SECURE,
 )
 from priotag.services.encryption import EncryptionManager
-from priotag.services.magic_word import get_magic_word_from_cache_or_db
+from priotag.services.institution import InstitutionService
 from priotag.services.pocketbase_service import POCKETBASE_URL
 from priotag.services.redis_service import get_redis
 from priotag.services.service_account import authenticate_service_account
@@ -125,7 +125,7 @@ async def verify_magic_word(
     req: Request,
     redis_client: redis.Redis = Depends(get_redis),
 ) -> MagicWordResponse:
-    """Verify the magic word and return a temporary registration token."""
+    """Verify the institution-specific magic word and return a temporary registration token."""
     client_ip = get_client_ip(req)
     rate_limit_key = f"rate_limit:magic_word:{client_ip}"
     attempts = redis_client.get(rate_limit_key)
@@ -136,10 +136,28 @@ async def verify_magic_word(
             detail="Zu viele Versuche. Bitte versuchen Sie es später erneut.",
         )
 
-    # Get magic word from cache/database
-    magic_word = await get_magic_word_from_cache_or_db(redis_client)
+    # Get institution by short_code
+    try:
+        institution = await InstitutionService.get_by_short_code(
+            request.institution_short_code
+        )
+    except HTTPException as e:
+        if e.status_code == 404:
+            raise HTTPException(
+                status_code=404, detail="Institution nicht gefunden"
+            ) from e
+        raise
+
+    # Check if institution is active
+    if not institution.active:
+        raise HTTPException(status_code=403, detail="Diese Institution ist nicht aktiv")
+
+    # Get institution's magic word
+    magic_word = institution.registration_magic_word
     if not magic_word:
-        raise HTTPException(status_code=500, detail="No magic word is initialized")
+        raise HTTPException(
+            status_code=500, detail="Kein Zauberwort für diese Institution konfiguriert"
+        )
 
     # Check magic word (case-insensitive comparison)
     is_valid = request.magic_word.strip().lower() == magic_word.lower()
@@ -157,9 +175,13 @@ async def verify_magic_word(
     # Generate temporary token
     token = secrets.token_urlsafe(32)
 
-    # Store token in Redis with 10 minute expiration
+    # Store token in Redis with 10 minute expiration, including institution_id
     token_key = f"reg_token:{token}"
-    token_data = {"created_at": datetime.now().isoformat(), "ip": client_ip}
+    token_data = {
+        "created_at": datetime.now().isoformat(),
+        "ip": client_ip,
+        "institution_id": institution.id,
+    }
     redis_client.setex(token_key, 600, json.dumps(token_data))
 
     return MagicWordResponse(
@@ -183,6 +205,17 @@ async def register_user(
             status_code=403, detail="Ungültiger oder abgelaufener Registrierungstoken"
         )
 
+    # Parse token data to get institution_id
+    try:
+        token_info = json.loads(str(token_data))
+        institution_id = token_info.get("institution_id")
+        if not institution_id:
+            raise HTTPException(
+                status_code=500, detail="Token enthält keine Institution-ID"
+            )
+    except (json.JSONDecodeError, KeyError) as e:
+        raise HTTPException(status_code=500, detail="Ungültige Token-Daten") from e
+
     # Delete token (one-time use)
     redis_client.delete(token_key)
 
@@ -198,21 +231,38 @@ async def register_user(
     redis_client.setex(identity_key, 300, "registering")
 
     try:
-        # Create data encryption key
-        encryption_data = EncryptionManager.create_user_encryption_data(
-            request.password
-        )
-        dek = EncryptionManager.get_user_dek(
-            request.password,
-            encryption_data["salt"],
-            encryption_data["user_wrapped_dek"],
-        )
-
-        # encrypt sensitive data
-        encrypted_fields = EncryptionManager.encrypt_fields({"name": request.name}, dek)
-
         # Proxy registration to PocketBase
         async with httpx.AsyncClient() as client:
+            # Fetch institution to get its admin_public_key
+            from priotag.services.institution import InstitutionService
+
+            institution = await InstitutionService.get_institution(institution_id)
+            admin_public_key_pem = (
+                institution.admin_public_key.encode()
+                if institution.admin_public_key
+                else b""
+            )
+
+            if not admin_public_key_pem:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Institution has no admin public key configured",
+                )
+
+            # Create data encryption key using institution's admin public key
+            encryption_data = EncryptionManager.create_user_encryption_data(
+                request.password, admin_public_key_pem
+            )
+            dek = EncryptionManager.get_user_dek(
+                request.password,
+                encryption_data["salt"],
+                encryption_data["user_wrapped_dek"],
+            )
+
+            # encrypt sensitive data
+            encrypted_fields = EncryptionManager.encrypt_fields(
+                {"name": request.name}, dek
+            )
             # Authenticate as service account
             service_token = await authenticate_service_account(client)
 
@@ -229,6 +279,7 @@ async def register_user(
                     "password": request.password,
                     "passwordConfirm": request.passwordConfirm,
                     "role": "user",
+                    "institution_id": institution_id,
                     "salt": encryption_data["salt"],
                     "user_wrapped_dek": encryption_data["user_wrapped_dek"],
                     "admin_wrapped_dek": encryption_data["admin_wrapped_dek"],
@@ -282,10 +333,12 @@ async def register_user(
             # Store session in Redis
             session_key = f"session:{token}"
             session_info = {
-                "user_id": auth_data["record"]["id"],
+                "id": auth_data["record"]["id"],
                 "username": auth_data["record"]["username"],
                 "role": auth_data["record"]["role"],
-                "is_admin": auth_data["record"]["role"] == "admin",
+                "is_admin": auth_data["record"]["role"]
+                in ["institution_admin", "super_admin"],
+                "institution_id": auth_data["record"].get("institution_id"),
             }
 
             # Determine session duration
@@ -305,6 +358,7 @@ async def register_user(
                 "success": True,
                 "message": "Registrierung erfolgreich",
                 "username": user_data.get("username"),
+                "id": user_data.get("id"),
             }
     finally:
         # Remove email lock
@@ -334,10 +388,28 @@ async def register_user_qr(
             detail="Zu viele Versuche. Bitte versuchen Sie es später erneut.",
         )
 
-    # Get magic word from cache/database
-    magic_word = await get_magic_word_from_cache_or_db(redis_client)
+    # Get institution by short_code
+    try:
+        institution = await InstitutionService.get_by_short_code(
+            request.institution_short_code
+        )
+    except HTTPException as e:
+        if e.status_code == 404:
+            raise HTTPException(
+                status_code=404, detail="Institution nicht gefunden"
+            ) from e
+        raise
+
+    # Check if institution is active
+    if not institution.active:
+        raise HTTPException(status_code=403, detail="Diese Institution ist nicht aktiv")
+
+    # Get institution's magic word
+    magic_word = institution.registration_magic_word
     if not magic_word:
-        raise HTTPException(status_code=500, detail="No magic word is initialized")
+        raise HTTPException(
+            status_code=500, detail="Kein Zauberwort für diese Institution konfiguriert"
+        )
 
     # Verify magic word (case-insensitive comparison)
     is_valid = request.magic_word.strip().lower() == magic_word.lower()
@@ -352,6 +424,9 @@ async def register_user_qr(
     # Reset rate limit on success
     redis_client.delete(rate_limit_key)
 
+    # Store institution_id for user creation
+    institution_id = institution.id
+
     # Check for duplicate registration attempts
     identity_key = f"reg_identity:{request.identity}"
     if redis_client.exists(identity_key):
@@ -364,9 +439,21 @@ async def register_user_qr(
     redis_client.setex(identity_key, 300, "registering")
 
     try:
-        # Create data encryption key
+        # Get institution's admin public key
+        admin_public_key_pem = (
+            institution.admin_public_key.encode()
+            if institution.admin_public_key
+            else b""
+        )
+
+        if not admin_public_key_pem:
+            raise HTTPException(
+                status_code=500, detail="Institution has no admin public key configured"
+            )
+
+        # Create data encryption key using institution's admin public key
         encryption_data = EncryptionManager.create_user_encryption_data(
-            request.password
+            request.password, admin_public_key_pem
         )
         dek = EncryptionManager.get_user_dek(
             request.password,
@@ -395,6 +482,7 @@ async def register_user_qr(
                     "password": request.password,
                     "passwordConfirm": request.passwordConfirm,
                     "role": "user",
+                    "institution_id": institution_id,
                     "salt": encryption_data["salt"],
                     "user_wrapped_dek": encryption_data["user_wrapped_dek"],
                     "admin_wrapped_dek": encryption_data["admin_wrapped_dek"],
@@ -448,10 +536,12 @@ async def register_user_qr(
             # Store session in Redis
             session_key = f"session:{token}"
             session_info = {
-                "user_id": auth_data["record"]["id"],
+                "id": auth_data["record"]["id"],
                 "username": auth_data["record"]["username"],
                 "role": auth_data["record"]["role"],
-                "is_admin": auth_data["record"]["role"] == "admin",
+                "is_admin": auth_data["record"]["role"]
+                in ["institution_admin", "super_admin"],
+                "institution_id": auth_data["record"].get("institution_id"),
             }
 
             # Determine session duration
@@ -471,6 +561,7 @@ async def register_user_qr(
                 "success": True,
                 "message": "Registrierung erfolgreich",
                 "username": user_data.get("username"),
+                "id": user_data.get("id"),
             }
     finally:
         # Remove identity lock
@@ -519,7 +610,6 @@ async def login_user(
 
     redis_client.incr(identity_rate_limit_key)
     redis_client.expire(identity_rate_limit_key, 60)
-
     try:
         async with httpx.AsyncClient() as client:
             # Authenticate with PocketBase
@@ -558,13 +648,17 @@ async def login_user(
             security_mode: SecurityMode = (
                 "persistent" if request.keep_logged_in else "session"
             )
-
             # Unwrap user's DEK using their password
             dek = EncryptionManager.get_user_dek(
                 request.password,
                 user_record.salt,
                 user_record.user_wrapped_dek,
             )
+
+            # Remove token from blacklist if it was previously logged out
+            # (PocketBase may reuse the same token for the same user)
+            blacklist_key = f"blacklist:{token}"
+            redis_client.delete(blacklist_key)
 
             # Store session info in Redis
             session_key = f"session:{token}"
@@ -605,9 +699,11 @@ async def login_user(
             set_auth_cookies(response, token, dek, cookie_max_age)
 
             return LoginResponse(
-                message="Erfolgreich als Administrator angemeldet"
-                if is_admin
-                else "Erfolgreich angemeldet",
+                message=(
+                    "Erfolgreich als Administrator angemeldet"
+                    if is_admin
+                    else "Erfolgreich angemeldet"
+                ),
             )
 
     except HTTPException:
@@ -664,6 +760,8 @@ async def verify_session(
         "user_id": current_session.id,
         "username": current_session.username,
         "is_admin": current_session.is_admin,
+        "role": current_session.role,
+        "institution_id": current_session.institution_id,
     }
 
 
@@ -784,7 +882,7 @@ async def change_password(
                             )
                             session_info = json.loads(session_data)
                             # Only delete sessions for this user
-                            if session_info.get("user_id") == current_session.id:
+                            if session_info.get("id") == current_session.id:
                                 redis_client.delete(key_str)
                                 invalidated_count += 1
 
@@ -797,10 +895,11 @@ async def change_password(
             # Create new session with new token
             session_key = f"session:{new_token}"
             session_info = {
-                "user_id": current_session.id,
+                "id": current_session.id,
                 "username": current_session.username,
-                "role": "admin" if current_session.is_admin else "user",
+                "role": current_session.role,
                 "is_admin": current_session.is_admin,
+                "institution_id": current_session.institution_id,
             }
 
             # Set session duration (8 hours for regular users, 15 minutes for admins)

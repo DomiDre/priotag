@@ -13,11 +13,12 @@ class UsersResponse(BaseModel):
     emailVisibility: bool
     verified: bool
     username: str
-    role: Literal["user", "service", "admin", "generic"]
+    role: Literal["user", "service", "institution_admin", "super_admin"]
     admin_wrapped_dek: str
     user_wrapped_dek: str
     salt: str
     encrypted_fields: str
+    institution_id: str | None = None
     collectionId: str
     collectionName: str
     created: str
@@ -34,6 +35,7 @@ class PriorityRecord(BaseModel):
     month: str
     encrypted_fields: str
     manual: bool
+    institution_id: str | None = None
     collectionId: str
     collectionName: str
     created: str
@@ -48,7 +50,36 @@ class VacationDayRecord(BaseModel):
     type: Literal["vacation", "admin_leave", "public_holiday"]
     description: str
     created_by: str
+    institution_id: str | None = None
     collectionId: str
     collectionName: str
     created: str
     updated: str
+
+
+class InstitutionRecord(BaseModel):
+    """Institution record (stored in database)."""
+
+    id: str
+    name: str
+    short_code: str
+    registration_magic_word: str
+    admin_public_key: str
+    settings: dict | None = None
+    active: bool = True
+    collectionId: str
+    collectionName: str
+    created: str
+    updated: str
+
+
+class InstitutionViewRecord(BaseModel):
+    """Institution record (stored in database)."""
+
+    id: str
+    name: str
+    short_code: str
+    admin_public_key: str | None = None
+    settings: dict | None = None
+    collectionId: str
+    collectionName: str

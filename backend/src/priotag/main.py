@@ -8,7 +8,15 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from priotag.api.routes import account, admin, auth, health, priorities, vacation_days
+from priotag.api.routes import (
+    account,
+    admin,
+    auth,
+    health,
+    institutions,
+    priorities,
+    vacation_days,
+)
 from priotag.config import settings
 from priotag.logging_config import setup_logging
 from priotag.middleware.metrics import (
@@ -99,6 +107,7 @@ app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(priorities.router, prefix="/api/v1/priorities", tags=["Prioliste"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Pocketbase"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(institutions.router, prefix="/api/v1", tags=["Institutions"])
 app.include_router(
     vacation_days.router, prefix="/api/v1/admin", tags=["Vacation Days Admin"]
 )

@@ -1,5 +1,13 @@
-"""Initialize private / public key and secure private key with admin password.
-Public key is used on server to encrypt user data encryption keys for admin access
+"""Initialize private / public key pair for an institution and secure private key with admin password.
+
+This script generates an RSA keypair for institution administrators:
+- Public key: Stored in the institution record in PocketBase, used by the server to encrypt user DEKs
+- Private key: Stored securely by the institution admin (NOT on the server), used to decrypt user data if needed
+
+Usage:
+    python -m priotag.scripts.initialize_admin_keypair
+
+The generated public key should be provided when creating a new institution via create_institution.py
 """
 
 from cryptography.hazmat.primitives import serialization
@@ -34,12 +42,14 @@ def generate_admin_keypair():
     with open("admin_private_key.pem", "wb") as f:
         f.write(private_pem)
     print("✓ Private key saved to admin_private_key.pem")
-    print("  Store this on admin's laptop/hardware token - NOT on server!")
+    print(
+        "  Store this securely - NOT on the server! Admin needs it to decrypt user data."
+    )
 
     with open("admin_public_key.pem", "wb") as f:
         f.write(public_pem)
     print("✓ Public key saved to admin_public_key.pem")
-    print("  This goes on the server (safe to store)")
+    print("  Provide this when creating the institution (stored in institution record)")
 
 
 if __name__ == "__main__":

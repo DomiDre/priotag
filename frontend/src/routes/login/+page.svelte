@@ -34,7 +34,7 @@
 	}
 
 	function goToRegister() {
-		goto('/register');
+		goto('/register-info');
 	}
 </script>
 

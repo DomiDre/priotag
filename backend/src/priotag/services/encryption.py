@@ -19,13 +19,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 class EncryptionManager:
     """Manages field-level encryption for sensitive user data."""
 
-    admin_pub_key_file = Path("/run/secrets/admin_public_key")
-    ADMIN_PUBLIC_KEY_PEM = (
-        admin_pub_key_file.read_bytes() if admin_pub_key_file.exists() else b""
-    )
-    if not admin_pub_key_file.exists():
-        print("Missing admin public key!!! Please set as secret.")
-
     KDF_ITERATIONS = 600000
     KEY_SIZE = 32
 
@@ -112,11 +105,19 @@ class EncryptionManager:
         plaintext = aesgcm.decrypt(nonce, ciphertext, None)
         return plaintext.decode()
 
-    @classmethod
-    def _load_admin_public_key(cls) -> RSAPublicKey:
-        """Load admin's RSA public key."""
+    @staticmethod
+    def _load_admin_public_key(admin_public_key_pem: bytes) -> RSAPublicKey:
+        """
+        Load admin's RSA public key from PEM bytes.
+
+        Args:
+            admin_public_key_pem: Institution's admin public key in PEM format
+
+        Returns:
+            RSA public key object
+        """
         public_key = serialization.load_pem_public_key(
-            cls.ADMIN_PUBLIC_KEY_PEM, backend=default_backend()
+            admin_public_key_pem, backend=default_backend()
         )
         # Type check and cast
         if not isinstance(public_key, RSAPublicKey):
@@ -124,13 +125,20 @@ class EncryptionManager:
 
         return public_key
 
-    @classmethod
-    def wrap_dek_with_admin_key(cls, dek: bytes) -> str:
+    @staticmethod
+    def wrap_dek_with_admin_key(dek: bytes, admin_public_key_pem: bytes) -> str:
         """
         Wrap DEK with admin's PUBLIC key.
         Server can do this, but CANNOT unwrap!
+
+        Args:
+            dek: Data encryption key to wrap
+            admin_public_key_pem: Institution's admin public key in PEM format
+
+        Returns:
+            Base64-encoded wrapped DEK
         """
-        public_key = cls._load_admin_public_key()
+        public_key = EncryptionManager._load_admin_public_key(admin_public_key_pem)
 
         encrypted_dek = public_key.encrypt(
             dek,
@@ -144,18 +152,21 @@ class EncryptionManager:
         return base64.b64encode(encrypted_dek).decode()
 
     @classmethod
-    def create_user_encryption_data(cls, password: str) -> dict[str, str]:
+    def create_user_encryption_data(
+        cls, password: str, admin_public_key_pem: bytes
+    ) -> dict[str, str]:
         """
         Create encryption data for a new user.
 
         Args:
             password: User's password
+            admin_public_key_pem: Institution's admin public key in PEM format
 
         Returns:
             Dictionary with keys to store in PocketBase:
             - salt: Base64-encoded salt for password KDF
             - user_wrapped_dek: DEK encrypted with user's password-derived key
-            - admin_wrapped_dek: DEK encrypted with admin master key
+            - admin_wrapped_dek: DEK encrypted with institution's admin key
         """
         # Generate salt and DEK
         salt = os.urandom(16)
@@ -169,8 +180,8 @@ class EncryptionManager:
             base64.b64encode(dek).decode(), password_key
         )
 
-        # Encrypt DEK with admin public key for external decryption using private key
-        admin_wrapped_dek = cls.wrap_dek_with_admin_key(dek)
+        # Encrypt DEK with institution's admin public key for external decryption
+        admin_wrapped_dek = cls.wrap_dek_with_admin_key(dek, admin_public_key_pem)
 
         return {
             "salt": base64.b64encode(salt).decode(),

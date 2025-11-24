@@ -222,3 +222,4 @@ monitoring/grafana/data
 monitoring/prometheus/data
 
 .claude
+.vscode
