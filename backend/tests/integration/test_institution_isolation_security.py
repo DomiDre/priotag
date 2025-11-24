@@ -16,6 +16,32 @@ from .conftest import (
 )
 
 
+def create_user(
+    test_app,
+    identity,
+    password,
+    name,
+    institution_code,
+    magic_word,
+    keep_logged_in=False,
+):
+    """Helper to create a user and return the response."""
+    response = test_app.post(
+        "/api/v1/auth/register-qr",
+        json={
+            "identity": identity,
+            "password": password,
+            "passwordConfirm": password,
+            "name": name,
+            "magic_word": magic_word,
+            "institution_short_code": institution_code,
+            "keep_logged_in": keep_logged_in,
+        },
+    )
+    assert response.status_code == 200
+    return response
+
+
 @pytest.mark.integration
 class TestInstitutionDataIsolation:
     """Test that institution admins cannot access other institutions' data."""
@@ -37,77 +63,32 @@ class TestInstitutionDataIsolation:
         )
 
         # Register user in Institution A
-        user_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_a",
-                "password": "PassA123!",
-                "passwordConfirm": "PassA123!",
-                "name": "User A",
-                "magic_word": "MagicA123",
-                "institution_short_code": "INST_A",
-                "keep_logged_in": False,
-            },
-        )
-        assert user_a_response.status_code == 200
+        create_user(test_app, "user_a", "PassA123!", "User A", "INST_A", "MagicA123")
 
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a",
-                "password": "AdminA123!",
-                "passwordConfirm": "AdminA123!",
-                "name": "Admin A",
-                "magic_word": "MagicA123",
-                "institution_short_code": "INST_A",
-                "keep_logged_in": True,
-            },
-        )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate admin A to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a",
+            password="AdminA123!",
+            name="Admin A",
+            institution_short_code="INST_A",
+            magic_word="MagicA123",
         )
 
         # Register user in Institution B
-        user_b_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_b",
-                "password": "PassB123!",
-                "passwordConfirm": "PassB123!",
-                "name": "User B",
-                "magic_word": "MagicB456",
-                "institution_short_code": "INST_B",
-                "keep_logged_in": False,
-            },
+        user_b_response = create_user(
+            test_app, "user_b", "PassB123!", "User B", "INST_B", "MagicB456"
         )
-        assert user_b_response.status_code == 200
         user_b_response_data = user_b_response.json()
 
         # Get user B's actual user ID and username from PocketBase
-        # (response only has username, not full user object)
         users_b = pocketbase_admin_client.get(
             "/api/collections/users/records",
             params={"filter": f'username="{user_b_response_data["username"]}"'},
         ).json()
         user_b_id = users_b["items"][0]["id"]
         user_b_username = users_b["items"][0]["username"]
-
-        # Login as admin A
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a",
-                "password": "AdminA123!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
 
         # Try to access user B's details (should fail - different institution)
         user_b_detail_response = test_app.get(f"/api/v1/admin/users/detail/{user_b_id}")
@@ -134,7 +115,6 @@ class TestInstitutionDataIsolation:
             "INST_A_PRIO",
             "MagicA789",
         )
-
         create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Priority Test",
@@ -143,19 +123,15 @@ class TestInstitutionDataIsolation:
         )
 
         # Register user in Institution B and create a priority
-        user_b_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_b_prio",
-                "password": "PassB789!",
-                "passwordConfirm": "PassB789!",
-                "name": "User B Priority",
-                "magic_word": "MagicB789",
-                "institution_short_code": "INST_B_PRIO",
-                "keep_logged_in": True,
-            },
+        user_b_response = create_user(
+            test_app,
+            "user_b_prio",
+            "PassB789!",
+            "User B Priority",
+            "INST_B_PRIO",
+            "MagicB789",
+            keep_logged_in=True,
         )
-        assert user_b_response.status_code == 200
         user_b_id = user_b_response.json()["id"]
 
         # User B creates a priority
@@ -182,42 +158,17 @@ class TestInstitutionDataIsolation:
         ).json()
         priority_b_id = priorities["items"][0]["id"]
 
-        # Logout user B
+        # Logout user B and login as admin A
         test_app.post("/api/v1/auth/logout")
-
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a_prio",
-                "password": "AdminA789!",
-                "passwordConfirm": "AdminA789!",
-                "name": "Admin A Priority",
-                "magic_word": "MagicA789",
-                "institution_short_code": "INST_A_PRIO",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_prio",
+            password="AdminA789!",
+            name="Admin A Priority",
+            institution_short_code="INST_A_PRIO",
+            magic_word="MagicA789",
         )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate admin A to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Login as admin A
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a_prio",
-                "password": "AdminA789!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
-        test_app.cookies = login_response.cookies
 
         # Get user submissions for the test month (should NOT include institution B's priority)
         submissions_response = test_app.get(f"/api/v1/admin/users/{test_prio_month}")
@@ -243,7 +194,6 @@ class TestInstitutionDataIsolation:
             "INST_A_UPD",
             "MagicA_upd",
         )
-
         create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Update Test",
@@ -252,53 +202,26 @@ class TestInstitutionDataIsolation:
         )
 
         # Register user in Institution B
-        user_b_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_b_upd",
-                "password": "PassB_upd!",
-                "passwordConfirm": "PassB_upd!",
-                "name": "User B Update",
-                "magic_word": "MagicB_upd",
-                "institution_short_code": "INST_B_UPD",
-                "keep_logged_in": False,
-            },
+        user_b_response = create_user(
+            test_app,
+            "user_b_upd",
+            "PassB_upd!",
+            "User B Update",
+            "INST_B_UPD",
+            "MagicB_upd",
         )
-        assert user_b_response.status_code == 200
         user_b_id = user_b_response.json()["id"]
 
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a_upd",
-                "password": "AdminA_upd!",
-                "passwordConfirm": "AdminA_upd!",
-                "name": "Admin A Update",
-                "magic_word": "MagicA_upd",
-                "institution_short_code": "INST_A_UPD",
-                "keep_logged_in": True,
-            },
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_upd",
+            password="AdminA_upd!",
+            name="Admin A Update",
+            institution_short_code="INST_A_UPD",
+            magic_word="MagicA_upd",
         )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate admin A to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Login as admin A
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a_upd",
-                "password": "AdminA_upd!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
 
         # Try to update user B (should fail - different institution)
         update_response = test_app.put(
@@ -322,7 +245,6 @@ class TestInstitutionDataIsolation:
             "INST_A_DEL",
             "MagicA_del",
         )
-
         create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Delete Test",
@@ -331,53 +253,26 @@ class TestInstitutionDataIsolation:
         )
 
         # Register user in Institution B
-        user_b_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_b_del",
-                "password": "PassB_del!",
-                "passwordConfirm": "PassB_del!",
-                "name": "User B Delete",
-                "magic_word": "MagicB_del",
-                "institution_short_code": "INST_B_DEL",
-                "keep_logged_in": False,
-            },
+        user_b_response = create_user(
+            test_app,
+            "user_b_del",
+            "PassB_del!",
+            "User B Delete",
+            "INST_B_DEL",
+            "MagicB_del",
         )
-        assert user_b_response.status_code == 200
         user_b_id = user_b_response.json()["id"]
 
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a_del",
-                "password": "AdminA_del!",
-                "passwordConfirm": "AdminA_del!",
-                "name": "Admin A Delete",
-                "magic_word": "MagicA_del",
-                "institution_short_code": "INST_A_DEL",
-                "keep_logged_in": True,
-            },
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_del",
+            password="AdminA_del!",
+            name="Admin A Delete",
+            institution_short_code="INST_A_DEL",
+            magic_word="MagicA_del",
         )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate admin A to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Login as admin A
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a_del",
-                "password": "AdminA_del!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
 
         # Try to delete user B (should fail - different institution)
         delete_response = test_app.delete(f"/api/v1/admin/users/{user_b_id}")
@@ -404,7 +299,6 @@ class TestInstitutionDataIsolation:
             "INST_A_CNT",
             "MagicA_cnt",
         )
-
         create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Count Test",
@@ -414,66 +308,36 @@ class TestInstitutionDataIsolation:
 
         # Register 2 users in Institution A
         for i in range(2):
-            test_app.post(
-                "/api/v1/auth/register-qr",
-                json={
-                    "identity": f"user_a{i}",
-                    "password": f"PassA{i}!",
-                    "passwordConfirm": f"PassA{i}!",
-                    "name": f"User A{i}",
-                    "magic_word": "MagicA_cnt",
-                    "institution_short_code": "INST_A_CNT",
-                    "keep_logged_in": False,
-                },
+            create_user(
+                test_app,
+                f"user_a{i}",
+                f"PassA{i}!",
+                f"User A{i}",
+                "INST_A_CNT",
+                "MagicA_cnt",
             )
 
         # Register 3 users in Institution B
         for i in range(3):
-            test_app.post(
-                "/api/v1/auth/register-qr",
-                json={
-                    "identity": f"user_b{i}",
-                    "password": f"PassB{i}!",
-                    "passwordConfirm": f"PassB{i}!",
-                    "name": f"User B{i}",
-                    "magic_word": "MagicB_cnt",
-                    "institution_short_code": "INST_B_CNT",
-                    "keep_logged_in": False,
-                },
+            create_user(
+                test_app,
+                f"user_b{i}",
+                f"PassB{i}!",
+                f"User B{i}",
+                "INST_B_CNT",
+                "MagicB_cnt",
             )
 
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a_cnt",
-                "password": "AdminA_cnt!",
-                "passwordConfirm": "AdminA_cnt!",
-                "name": "Admin A Count",
-                "magic_word": "MagicA_cnt",
-                "institution_short_code": "INST_A_CNT",
-                "keep_logged_in": True,
-            },
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_cnt",
+            password="AdminA_cnt!",
+            name="Admin A Count",
+            institution_short_code="INST_A_CNT",
+            magic_word="MagicA_cnt",
         )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate admin A to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Login as admin A
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a_cnt",
-                "password": "AdminA_cnt!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
 
         # Get total users (should only count institution A users)
         total_users_response = test_app.get("/api/v1/admin/total-users")
@@ -501,7 +365,6 @@ class TestSuperAdminAccess:
             "INST_A_SUP",
             "MagicA_sup",
         )
-
         create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Super Test",
@@ -510,35 +373,25 @@ class TestSuperAdminAccess:
         )
 
         # Register user in Institution A
-        user_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_a_sup",
-                "password": "PassA_sup!",
-                "passwordConfirm": "PassA_sup!",
-                "name": "User A Super",
-                "magic_word": "MagicA_sup",
-                "institution_short_code": "INST_A_SUP",
-                "keep_logged_in": False,
-            },
+        user_a_response = create_user(
+            test_app,
+            "user_a_sup",
+            "PassA_sup!",
+            "User A Super",
+            "INST_A_SUP",
+            "MagicA_sup",
         )
-        assert user_a_response.status_code == 200
         user_a_id = user_a_response.json()["id"]
 
         # Register user in Institution B
-        user_b_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_b_sup",
-                "password": "PassB_sup!",
-                "passwordConfirm": "PassB_sup!",
-                "name": "User B Super",
-                "magic_word": "MagicB_sup",
-                "institution_short_code": "INST_B_SUP",
-                "keep_logged_in": False,
-            },
+        user_b_response = create_user(
+            test_app,
+            "user_b_sup",
+            "PassB_sup!",
+            "User B Super",
+            "INST_B_SUP",
+            "MagicB_sup",
         )
-        assert user_b_response.status_code == 200
         user_b_id = user_b_response.json()["id"]
 
         # Create super admin directly in PocketBase (no institution)
@@ -551,7 +404,7 @@ class TestSuperAdminAccess:
                 "role": "super_admin",
                 "institution_id": None,
             },
-        ).json()
+        )
 
         # Login as super admin using helper function
         login_with_pocketbase(
@@ -583,7 +436,6 @@ class TestSuperAdminAccess:
             "INST_A_TOT",
             "MagicA_tot",
         )
-
         create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Total Test",
@@ -593,32 +445,24 @@ class TestSuperAdminAccess:
 
         # Register 2 users in Institution A
         for i in range(2):
-            test_app.post(
-                "/api/v1/auth/register-qr",
-                json={
-                    "identity": f"user_a_tot{i}",
-                    "password": f"PassA_tot{i}!",
-                    "passwordConfirm": f"PassA_tot{i}!",
-                    "name": f"User A Tot {i}",
-                    "magic_word": "MagicA_tot",
-                    "institution_short_code": "INST_A_TOT",
-                    "keep_logged_in": False,
-                },
+            create_user(
+                test_app,
+                f"user_a_tot{i}",
+                f"PassA_tot{i}!",
+                f"User A Tot {i}",
+                "INST_A_TOT",
+                "MagicA_tot",
             )
 
         # Register 3 users in Institution B
         for i in range(3):
-            test_app.post(
-                "/api/v1/auth/register-qr",
-                json={
-                    "identity": f"user_b_tot{i}",
-                    "password": f"PassB_tot{i}!",
-                    "passwordConfirm": f"PassB_tot{i}!",
-                    "name": f"User B Tot {i}",
-                    "magic_word": "MagicB_tot",
-                    "institution_short_code": "INST_B_TOT",
-                    "keep_logged_in": False,
-                },
+            create_user(
+                test_app,
+                f"user_b_tot{i}",
+                f"PassB_tot{i}!",
+                f"User B Tot {i}",
+                "INST_B_TOT",
+                "MagicB_tot",
             )
 
         # Create super admin directly in PocketBase (no institution)
@@ -631,7 +475,7 @@ class TestSuperAdminAccess:
                 "role": "super_admin",
                 "institution_id": None,
             },
-        ).json()
+        )
 
         # Login as super admin using helper function
         login_with_pocketbase(
@@ -671,7 +515,6 @@ class TestVacationDaysIsolation:
             "INST_A_VAC",
             "MagicA_vac",
         )
-
         inst_b = create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Vacation Test",
@@ -691,38 +534,16 @@ class TestVacationDaysIsolation:
             },
         ).json()
 
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a_vac",
-                "password": "AdminAVac!",
-                "passwordConfirm": "AdminAVac!",
-                "name": "Admin A Vacation",
-                "magic_word": "MagicA_vac",
-                "institution_short_code": "INST_A_VAC",
-                "keep_logged_in": True,
-            },
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_vac",
+            password="AdminAVac!",
+            name="Admin A Vacation",
+            institution_short_code="INST_A_VAC",
+            magic_word="MagicA_vac",
         )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate admin A to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Login as admin A
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a_vac",
-                "password": "AdminAVac!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
 
         # Get all vacation days (should NOT include institution B's vacation day)
         vacation_response = test_app.get("/api/v1/admin/vacation-days")
@@ -748,7 +569,6 @@ class TestVacationDaysIsolation:
             "INST_A_DEL_VAC",
             "MagicA_del_vac",
         )
-
         inst_b = create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Delete Vac Test",
@@ -757,10 +577,11 @@ class TestVacationDaysIsolation:
         )
 
         # Create vacation day for institution B
+        vacation_date = (datetime.now() + timedelta(days=150)).strftime("%Y-%m-%d")
         vacation_b = pocketbase_admin_client.post(
             "/api/collections/vacation_days/records",
             json={
-                "date": (datetime.now() + timedelta(days=150)).strftime("%Y-%m-%d"),
+                "date": vacation_date,
                 "type": "public_holiday",
                 "description": "Independence Day",
                 "created_by": "admin_b",
@@ -768,42 +589,20 @@ class TestVacationDaysIsolation:
             },
         ).json()
 
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a_del_vac",
-                "password": "AdminADelVac!",
-                "passwordConfirm": "AdminADelVac!",
-                "name": "Admin A Delete Vac",
-                "magic_word": "MagicA_del_vac",
-                "institution_short_code": "INST_A_DEL_VAC",
-                "keep_logged_in": True,
-            },
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_del_vac",
+            password="AdminADelVac!",
+            name="Admin A Delete Vac",
+            institution_short_code="INST_A_DEL_VAC",
+            magic_word="MagicA_del_vac",
         )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate admin A to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Login as admin A
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a_del_vac",
-                "password": "AdminADelVac!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
 
         # Try to delete institution B's vacation day (should fail)
         delete_response = test_app.delete(
-            f"/api/v1/admin/vacation-days/{(datetime.now() + timedelta(days=150)).strftime('%Y-%m-%d')}"
+            f"/api/v1/admin/vacation-days/{vacation_date}"
         )
         assert delete_response.status_code in [403, 404]
 
@@ -827,44 +626,23 @@ class TestVacationDaysIsolation:
             "MagicCreate_vac",
         )
 
-        # Register institution admin
-        admin_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_create_vac",
-                "password": "AdminCreateVac!",
-                "passwordConfirm": "AdminCreateVac!",
-                "name": "Admin Create Vac",
-                "magic_word": "MagicCreate_vac",
-                "institution_short_code": "INST_CREATE_VAC",
-                "keep_logged_in": True,
-            },
+        # Register and elevate admin
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_create_vac",
+            password="AdminCreateVac!",
+            name="Admin Create Vac",
+            institution_short_code="INST_CREATE_VAC",
+            magic_word="MagicCreate_vac",
         )
-        assert admin_response.status_code == 200
-        admin_user_id = admin_response.json()["id"]
-
-        # Elevate to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Login as admin
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_create_vac",
-                "password": "AdminCreateVac!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
 
         # Create vacation day (should succeed)
+        vacation_date = (datetime.now() + timedelta(days=200)).strftime("%Y-%m-%d")
         create_response = test_app.post(
             "/api/v1/admin/vacation-days",
             json={
-                "date": (datetime.now() + timedelta(days=200)).strftime("%Y-%m-%d"),
+                "date": vacation_date,
                 "type": "vacation",
                 "description": "Christmas Eve",
             },
@@ -880,10 +658,204 @@ class TestVacationDaysIsolation:
         vac_data = vac_check.json()
         assert vac_data["institution_id"] == inst["id"]
 
+    def test_user_cannot_see_other_institutions_vacation_days(
+        self, test_app, pocketbase_admin_client
+    ):
+        """
+        Test that regular user in Institution A cannot see vacation days from Institution B.
+
+        This is a CRITICAL security test for user-facing vacation days endpoints.
+        """
+        # Create two institutions
+        inst_a = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A User Vac Test",
+            "INST_A_USER_VAC",
+            "MagicAUserVac",
+        )
+        inst_b = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B User Vac Test",
+            "INST_B_USER_VAC",
+            "MagicBUserVac",
+        )
+
+        # Create vacation day for institution B
+        vac_b_date = (datetime.now() + timedelta(days=250)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_b_date,
+                "type": "public_holiday",
+                "description": "New Year's Eve",
+                "created_by": "admin_b",
+                "institution_id": inst_b["id"],
+            },
+        )
+
+        # Create vacation day for institution A
+        vac_a_date = (datetime.now() + timedelta(days=260)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_a_date,
+                "type": "vacation",
+                "description": "Institution A Vacation",
+                "created_by": "admin_a",
+                "institution_id": inst_a["id"],
+            },
+        )
+
+        # Register regular user in Institution A
+        create_user(
+            test_app,
+            "user_a_vac",
+            "UserAVac123!",
+            "User A Vac",
+            "INST_A_USER_VAC",
+            "MagicAUserVac",
+            keep_logged_in=True,
+        )
+
+        # Get all vacation days as user A (should NOT include institution B's vacation day)
+        query_year = (datetime.now() + timedelta(days=260)).year
+        vacation_response = test_app.get(f"/api/v1/vacation-days?year={query_year}")
+        assert vacation_response.status_code == 200
+        vacation_days = vacation_response.json()
+
+        # Verify user A can only see their institution's vacation days
+        vacation_dates = [v["date"] for v in vacation_days]
+        assert any(
+            vd.startswith(vac_a_date) for vd in vacation_dates
+        )  # Institution A's
+        assert not any(
+            vd.startswith(vac_b_date) for vd in vacation_dates
+        )  # Institution B's
+
+    def test_user_cannot_see_other_institution_vacation_days_by_date(
+        self, test_app, pocketbase_admin_client
+    ):
+        """
+        Test that regular user cannot query specific vacation days from other institutions.
+        """
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A User Vac Single Test",
+            "INST_A_USER_VAC_SINGLE",
+            "MagicAUserVacSingle",
+        )
+        inst_b = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B User Vac Single Test",
+            "INST_B_USER_VAC_SINGLE",
+            "MagicBUserVacSingle",
+        )
+
+        # Create vacation day for institution B
+        vac_b_single_date = (datetime.now() + timedelta(days=270)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_b_single_date,
+                "type": "public_holiday",
+                "description": "Institution B Holiday",
+                "created_by": "admin_b",
+                "institution_id": inst_b["id"],
+            },
+        )
+
+        # Register regular user in Institution A
+        create_user(
+            test_app,
+            "user_a_vac_single",
+            "UserAVacSingle123!",
+            "User A Vac Single",
+            "INST_A_USER_VAC_SINGLE",
+            "MagicAUserVacSingle",
+            keep_logged_in=True,
+        )
+
+        # Try to get Institution B's vacation day by date (should fail)
+        vacation_response = test_app.get(f"/api/v1/vacation-days/{vac_b_single_date}")
+        assert (
+            vacation_response.status_code == 404
+        )  # Not found (filtered by institution)
+
+    def test_user_vacation_days_range_endpoint_filters_by_institution(
+        self, test_app, pocketbase_admin_client
+    ):
+        """
+        Test that vacation days range endpoint filters by institution.
+        """
+        # Create two institutions
+        inst_a = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Range Test",
+            "INST_A_RANGE",
+            "MagicARange",
+        )
+        inst_b = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Range Test",
+            "INST_B_RANGE",
+            "MagicBRange",
+        )
+
+        # Create vacation days for both institutions in same date range
+        vac_range_a_date = (datetime.now() + timedelta(days=280)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_range_a_date,
+                "type": "vacation",
+                "description": "Institution A June Vacation",
+                "created_by": "admin_a",
+                "institution_id": inst_a["id"],
+            },
+        )
+
+        vac_range_b_date = (datetime.now() + timedelta(days=295)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_range_b_date,
+                "type": "vacation",
+                "description": "Institution B June Vacation",
+                "created_by": "admin_b",
+                "institution_id": inst_b["id"],
+            },
+        )
+
+        # Register user in Institution A
+        create_user(
+            test_app,
+            "user_a_range",
+            "UserARange123!",
+            "User A Range",
+            "INST_A_RANGE",
+            "MagicARange",
+            keep_logged_in=True,
+        )
+
+        # Get vacation days in range (should only see Institution A's)
+        start_date = (datetime.now() + timedelta(days=275)).strftime("%Y-%m-%d")
+        end_date = (datetime.now() + timedelta(days=300)).strftime("%Y-%m-%d")
+        vacation_response = test_app.get(
+            f"/api/v1/vacation-days/range?start_date={start_date}&end_date={end_date}"
+        )
+        assert vacation_response.status_code == 200
+        vacation_days = vacation_response.json()
+
+        # Should only see Institution A's vacation day
+        assert len(vacation_days) == 1
+        assert vacation_days[0]["date"].startswith(vac_range_a_date)
+        assert vacation_days[0]["description"] == "Institution A June Vacation"
+
 
 @pytest.mark.integration
-class TestPrioritiesHaveInstitutionId:
-    """Test that priorities are created with institution_id."""
+class TestPrioritiesIsolation:
+    """Test that priorities are properly isolated between institutions."""
 
     def test_user_priority_save_includes_institution_id(
         self, test_app, pocketbase_admin_client
@@ -900,19 +872,15 @@ class TestPrioritiesHaveInstitutionId:
         )
 
         # Register user
-        user_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_prio",
-                "password": "UserPrio123!",
-                "passwordConfirm": "UserPrio123!",
-                "name": "User Priority",
-                "magic_word": "MagicPrio123",
-                "institution_short_code": "INST_PRIO",
-                "keep_logged_in": True,
-            },
+        user_response = create_user(
+            test_app,
+            "user_prio",
+            "UserPrio123!",
+            "User Priority",
+            "INST_PRIO",
+            "MagicPrio123",
+            keep_logged_in=True,
         )
-        assert user_response.status_code == 200
         user_id = user_response.json()["id"]
 
         # Save priorities
@@ -941,227 +909,6 @@ class TestPrioritiesHaveInstitutionId:
         assert len(priorities["items"]) == 1
         assert priorities["items"][0]["institution_id"] == inst["id"]
 
-
-@pytest.mark.integration
-class TestUserVacationDaysIsolation:
-    """Test that regular users cannot see vacation days from other institutions."""
-
-    def test_user_cannot_see_other_institutions_vacation_days(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that regular user in Institution A cannot see vacation days from Institution B.
-
-        This is a CRITICAL security test for user-facing vacation days endpoints.
-        """
-        # Create two institutions
-        inst_a = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A User Vac Test",
-            "INST_A_USER_VAC",
-            "MagicAUserVac",
-        )
-
-        inst_b = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B User Vac Test",
-            "INST_B_USER_VAC",
-            "MagicBUserVac",
-        )
-
-        # Create vacation day for institution B
-        vac_b_date = (datetime.now() + timedelta(days=250)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_b_date,
-                "type": "public_holiday",
-                "description": "New Year's Eve",
-                "created_by": "admin_b",
-                "institution_id": inst_b["id"],
-            },
-        ).json()
-
-        # Create vacation day for institution A
-        vac_a_date = (datetime.now() + timedelta(days=260)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_a_date,
-                "type": "vacation",
-                "description": "Institution A Vacation",
-                "created_by": "admin_a",
-                "institution_id": inst_a["id"],
-            },
-        ).json()
-
-        # Register regular user in Institution A
-        user_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_a_vac",
-                "password": "UserAVac123!",
-                "passwordConfirm": "UserAVac123!",
-                "name": "User A Vac",
-                "magic_word": "MagicAUserVac",
-                "institution_short_code": "INST_A_USER_VAC",
-                "keep_logged_in": True,
-            },
-        )
-        assert user_a_response.status_code == 200
-
-        # Get all vacation days as user A (should NOT include institution B's vacation day)
-        # Use the year from the created vacation days
-        query_year = (datetime.now() + timedelta(days=260)).year
-        vacation_response = test_app.get(f"/api/v1/vacation-days?year={query_year}")
-        assert vacation_response.status_code == 200
-        vacation_days = vacation_response.json()
-
-        # Verify user A can only see their institution's vacation days
-        vacation_dates = [v["date"] for v in vacation_days]
-        # Dates may have timestamps, so use startswith
-        assert any(
-            vd.startswith(vac_a_date) for vd in vacation_dates
-        )  # Institution A's vacation day
-        assert not any(
-            vd.startswith(vac_b_date) for vd in vacation_dates
-        )  # Institution B's vacation day (MUST NOT be visible)
-
-    def test_user_cannot_see_other_institution_vacation_days_by_date(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that regular user cannot query specific vacation days from other institutions.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A User Vac Single Test",
-            "INST_A_USER_VAC_SINGLE",
-            "MagicAUserVacSingle",
-        )
-
-        inst_b = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B User Vac Single Test",
-            "INST_B_USER_VAC_SINGLE",
-            "MagicBUserVacSingle",
-        )
-
-        # Create vacation day for institution B
-        vac_b_single_date = (datetime.now() + timedelta(days=270)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_b_single_date,
-                "type": "public_holiday",
-                "description": "Institution B Holiday",
-                "created_by": "admin_b",
-                "institution_id": inst_b["id"],
-            },
-        ).json()
-
-        # Register regular user in Institution A
-        user_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_a_vac_single",
-                "password": "UserAVacSingle123!",
-                "passwordConfirm": "UserAVacSingle123!",
-                "name": "User A Vac Single",
-                "magic_word": "MagicAUserVacSingle",
-                "institution_short_code": "INST_A_USER_VAC_SINGLE",
-                "keep_logged_in": True,
-            },
-        )
-        assert user_a_response.status_code == 200
-
-        # Try to get Institution B's vacation day by date (should fail)
-        vacation_response = test_app.get(f"/api/v1/vacation-days/{vac_b_single_date}")
-        assert (
-            vacation_response.status_code == 404
-        )  # Not found (filtered by institution)
-
-    def test_user_vacation_days_range_endpoint_filters_by_institution(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that vacation days range endpoint filters by institution.
-        """
-        # Create two institutions
-        inst_a = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Range Test",
-            "INST_A_RANGE",
-            "MagicARange",
-        )
-
-        inst_b = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Range Test",
-            "INST_B_RANGE",
-            "MagicBRange",
-        )
-
-        # Create vacation days for both institutions in same date range
-        vac_range_a_date = (datetime.now() + timedelta(days=280)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_range_a_date,
-                "type": "vacation",
-                "description": "Institution A June Vacation",
-                "created_by": "admin_a",
-                "institution_id": inst_a["id"],
-            },
-        ).json()
-
-        vac_range_b_date = (datetime.now() + timedelta(days=295)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_range_b_date,
-                "type": "vacation",
-                "description": "Institution B June Vacation",
-                "created_by": "admin_b",
-                "institution_id": inst_b["id"],
-            },
-        ).json()
-
-        # Register user in Institution A
-        user_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_a_range",
-                "password": "UserARange123!",
-                "passwordConfirm": "UserARange123!",
-                "name": "User A Range",
-                "magic_word": "MagicARange",
-                "institution_short_code": "INST_A_RANGE",
-                "keep_logged_in": True,
-            },
-        )
-        assert user_a_response.status_code == 200
-
-        # Get vacation days in range (should only see Institution A's)
-        start_date = (datetime.now() + timedelta(days=275)).strftime("%Y-%m-%d")
-        end_date = (datetime.now() + timedelta(days=300)).strftime("%Y-%m-%d")
-        vacation_response = test_app.get(
-            f"/api/v1/vacation-days/range?start_date={start_date}&end_date={end_date}"
-        )
-        assert vacation_response.status_code == 200
-        vacation_days = vacation_response.json()
-
-        # Should only see Institution A's vacation day
-        assert len(vacation_days) == 1
-        assert vacation_days[0]["date"].startswith(vac_range_a_date)
-        assert vacation_days[0]["description"] == "Institution A June Vacation"
-
-
-@pytest.mark.integration
-class TestAdminPriorityUpdateDeleteIsolation:
-    """Test that admin priority update/delete operations respect institution boundaries."""
-
     def test_institution_admin_cannot_update_other_institution_priorities(
         self, test_app, pocketbase_admin_client
     ):
@@ -1177,7 +924,6 @@ class TestAdminPriorityUpdateDeleteIsolation:
             "INST_A_PRIO_UPDATE",
             "MagicAPrioUpdate",
         )
-
         create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Priority Update Test",
@@ -1186,19 +932,15 @@ class TestAdminPriorityUpdateDeleteIsolation:
         )
 
         # Create user in Institution B and their priority
-        user_b_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_b_prio_update",
-                "password": "UserBPrioUpdate123!",
-                "passwordConfirm": "UserBPrioUpdate123!",
-                "name": "User B Priority Update",
-                "magic_word": "MagicBPrioUpdate",
-                "institution_short_code": "INST_B_PRIO_UPDATE",
-                "keep_logged_in": True,
-            },
+        user_b_response = create_user(
+            test_app,
+            "user_b_prio_update",
+            "UserBPrioUpdate123!",
+            "User B Priority Update",
+            "INST_B_PRIO_UPDATE",
+            "MagicBPrioUpdate",
+            keep_logged_in=True,
         )
-        assert user_b_response.status_code == 200
         user_b_id = user_b_response.json()["id"]
 
         # User B creates a priority
@@ -1225,54 +967,24 @@ class TestAdminPriorityUpdateDeleteIsolation:
         ).json()
         priority_id = priorities["items"][0]["id"]
 
-        # Logout user B
+        # Logout user B and register admin A
         test_app.post("/api/v1/auth/logout")
-
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a_prio_update",
-                "password": "AdminAPrioUpdate123!",
-                "passwordConfirm": "AdminAPrioUpdate123!",
-                "name": "Admin A Priority Update",
-                "magic_word": "MagicAPrioUpdate",
-                "institution_short_code": "INST_A_PRIO_UPDATE",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_prio_update",
+            password="AdminAPrioUpdate123!",
+            name="Admin A Priority Update",
+            institution_short_code="INST_A_PRIO_UPDATE",
+            magic_word="MagicAPrioUpdate",
         )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Re-login as admin A to refresh session
-        test_app.post("/api/v1/auth/logout")
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a_prio_update",
-                "password": "AdminAPrioUpdate123!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
-        test_app.cookies = login_response.cookies
 
         # Try to update Institution B's priority (should fail)
         update_response = test_app.patch(
             f"/api/v1/admin/priorities/{priority_id}",
             json={"encrypted_fields": "tampered_data"},
         )
-        assert update_response.status_code in [
-            401,
-            404,
-            403,
-        ]  # Unauthorized, Forbidden, or Not Found
+        assert update_response.status_code in [401, 404, 403]
 
     def test_institution_admin_cannot_delete_other_institution_priorities(
         self, test_app, pocketbase_admin_client
@@ -1289,7 +1001,6 @@ class TestAdminPriorityUpdateDeleteIsolation:
             "INST_A_PRIO_DELETE",
             "MagicAPrioDelete",
         )
-
         create_institution_with_rsa_key(
             pocketbase_admin_client,
             "Institution B Priority Delete Test",
@@ -1298,22 +1009,18 @@ class TestAdminPriorityUpdateDeleteIsolation:
         )
 
         # Create user in Institution B and their priority
-        user_b_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_b_prio_delete",
-                "password": "UserBPrioDelete123!",
-                "passwordConfirm": "UserBPrioDelete123!",
-                "name": "User B Priority Delete",
-                "magic_word": "MagicBPrioDelete",
-                "institution_short_code": "INST_B_PRIO_DELETE",
-                "keep_logged_in": True,
-            },
+        user_b_response = create_user(
+            test_app,
+            "user_b_prio_delete",
+            "UserBPrioDelete123!",
+            "User B Priority Delete",
+            "INST_B_PRIO_DELETE",
+            "MagicBPrioDelete",
+            keep_logged_in=True,
         )
-        assert user_b_response.status_code == 200
         user_b_id = user_b_response.json()["id"]
 
-        # User B creates a priority (use next month, within valid range)
+        # User B creates a priority
         test_month_delete = (datetime.now() + timedelta(days=35)).strftime("%Y-%m")
         priority_response = test_app.put(
             f"/api/v1/priorities/{test_month_delete}",
@@ -1337,51 +1044,21 @@ class TestAdminPriorityUpdateDeleteIsolation:
         ).json()
         priority_id = priorities["items"][0]["id"]
 
-        # Logout user B
+        # Logout user B and register admin A
         test_app.post("/api/v1/auth/logout")
-
-        # Register institution admin in Institution A
-        admin_a_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_a_prio_delete",
-                "password": "AdminAPrioDelete123!",
-                "passwordConfirm": "AdminAPrioDelete123!",
-                "name": "Admin A Priority Delete",
-                "magic_word": "MagicAPrioDelete",
-                "institution_short_code": "INST_A_PRIO_DELETE",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_prio_delete",
+            password="AdminAPrioDelete123!",
+            name="Admin A Priority Delete",
+            institution_short_code="INST_A_PRIO_DELETE",
+            magic_word="MagicAPrioDelete",
         )
-        assert admin_a_response.status_code == 200
-        admin_a_user_id = admin_a_response.json()["id"]
-
-        # Elevate to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_a_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Re-login as admin A to refresh session
-        test_app.post("/api/v1/auth/logout")
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_a_prio_delete",
-                "password": "AdminAPrioDelete123!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
-        test_app.cookies = login_response.cookies
 
         # Try to delete Institution B's priority (should fail)
         delete_response = test_app.delete(f"/api/v1/admin/priorities/{priority_id}")
-        assert delete_response.status_code in [
-            401,
-            404,
-            403,
-        ]  # Unauthorized, Forbidden, or Not Found
+        assert delete_response.status_code in [401, 404, 403]
 
         # Verify priority still exists
         verify_response = pocketbase_admin_client.get(
@@ -1391,8 +1068,8 @@ class TestAdminPriorityUpdateDeleteIsolation:
 
 
 @pytest.mark.integration
-class TestInputValidationFilterInjection:
-    """Test that input validation prevents filter injection attacks."""
+class TestInputValidationAndSecurityFixes:
+    """Test input validation and fixes for security audit findings."""
 
     def test_manual_entry_delete_rejects_malicious_month(
         self, test_app, pocketbase_admin_client
@@ -1407,41 +1084,15 @@ class TestInputValidationFilterInjection:
             "INST_FILTER",
             "MagicFilter123",
         )
-
-        admin_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_filter",
-                "password": "AdminFilter123!",
-                "passwordConfirm": "AdminFilter123!",
-                "name": "Admin Filter",
-                "magic_word": "MagicFilter123",
-                "institution_short_code": "INST_FILTER",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_filter",
+            password="AdminFilter123!",
+            name="Admin Filter",
+            institution_short_code="INST_FILTER",
+            magic_word="MagicFilter123",
         )
-        assert admin_response.status_code == 200
-        admin_user_id = admin_response.json()["id"]
-
-        # Elevate to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Re-login as admin to get updated role in session
-        test_app.post("/api/v1/auth/logout")
-        test_app.cookies.clear()
-
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_filter",
-                "password": "AdminFilter123!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
 
         # Try to delete with malicious month parameter (filter injection attempt)
         malicious_month = (
@@ -1466,40 +1117,15 @@ class TestInputValidationFilterInjection:
             "INST_ID_INJ",
             "MagicIdInj123",
         )
-
-        admin_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_id_inj",
-                "password": "AdminIdInj123!",
-                "passwordConfirm": "AdminIdInj123!",
-                "name": "Admin Id Injection",
-                "magic_word": "MagicIdInj123",
-                "institution_short_code": "INST_ID_INJ",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_id_inj",
+            password="AdminIdInj123!",
+            name="Admin Id Injection",
+            institution_short_code="INST_ID_INJ",
+            magic_word="MagicIdInj123",
         )
-        assert admin_response.status_code == 200
-        admin_user_id = admin_response.json()["id"]
-
-        # Elevate to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Re-login as admin
-        test_app.post("/api/v1/auth/logout")
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_id_inj",
-                "password": "AdminIdInj123!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
-        test_app.cookies = login_response.cookies
 
         # Try to delete with malicious identifier (filter injection attempt)
         malicious_identifier = 'test" || identifier!=""'
@@ -1522,40 +1148,15 @@ class TestInputValidationFilterInjection:
             "INST_MANUAL_INJ",
             "MagicManualInj123",
         )
-
-        admin_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_manual_inj",
-                "password": "AdminManualInj123!",
-                "passwordConfirm": "AdminManualInj123!",
-                "name": "Admin Manual Injection",
-                "magic_word": "MagicManualInj123",
-                "institution_short_code": "INST_MANUAL_INJ",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_manual_inj",
+            password="AdminManualInj123!",
+            name="Admin Manual Injection",
+            institution_short_code="INST_MANUAL_INJ",
+            magic_word="MagicManualInj123",
         )
-        assert admin_response.status_code == 200
-        admin_user_id = admin_response.json()["id"]
-
-        # Elevate to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Re-login as admin
-        test_app.post("/api/v1/auth/logout")
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_manual_inj",
-                "password": "AdminManualInj123!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
-        test_app.cookies = login_response.cookies
 
         # Try to create manual priority with malicious identifier
         malicious_identifier = 'test" || manual = false && userId="'
@@ -1592,40 +1193,15 @@ class TestInputValidationFilterInjection:
             "INST_USER_INJ",
             "MagicUserInj123",
         )
-
-        admin_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_user_inj",
-                "password": "AdminUserInj123!",
-                "passwordConfirm": "AdminUserInj123!",
-                "name": "Admin User Injection",
-                "magic_word": "MagicUserInj123",
-                "institution_short_code": "INST_USER_INJ",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_user_inj",
+            password="AdminUserInj123!",
+            name="Admin User Injection",
+            institution_short_code="INST_USER_INJ",
+            magic_word="MagicUserInj123",
         )
-        assert admin_response.status_code == 200
-        admin_user_id = admin_response.json()["id"]
-
-        # Elevate to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Re-login as admin
-        test_app.post("/api/v1/auth/logout")
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_user_inj",
-                "password": "AdminUserInj123!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
-        test_app.cookies = login_response.cookies
 
         # Try to get user with malicious username (filter injection attempt)
         malicious_username = "test' || role='super_admin"
@@ -1646,40 +1222,15 @@ class TestInputValidationFilterInjection:
             "INST_MONTH_VAL",
             "MagicMonthVal123",
         )
-
-        admin_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "admin_month_val",
-                "password": "AdminMonthVal123!",
-                "passwordConfirm": "AdminMonthVal123!",
-                "name": "Admin Month Validation",
-                "magic_word": "MagicMonthVal123",
-                "institution_short_code": "INST_MONTH_VAL",
-                "keep_logged_in": True,
-            },
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_month_val",
+            password="AdminMonthVal123!",
+            name="Admin Month Validation",
+            institution_short_code="INST_MONTH_VAL",
+            magic_word="MagicMonthVal123",
         )
-        assert admin_response.status_code == 200
-        admin_user_id = admin_response.json()["id"]
-
-        # Elevate to institution_admin
-        pocketbase_admin_client.patch(
-            f"/api/collections/users/records/{admin_user_id}",
-            json={"role": "institution_admin"},
-        )
-
-        # Re-login as admin
-        test_app.post("/api/v1/auth/logout")
-        login_response = test_app.post(
-            "/api/v1/auth/login",
-            json={
-                "identity": "admin_month_val",
-                "password": "AdminMonthVal123!",
-                "keep_logged_in": True,
-            },
-        )
-        assert login_response.status_code == 200
-        test_app.cookies = login_response.cookies
 
         # Try to get manual entries with malicious month
         malicious_month = f'{datetime.now().strftime("%Y-%m")}" || manual != true'
@@ -1688,11 +1239,6 @@ class TestInputValidationFilterInjection:
         )
         # Should reject with 422 (validation error)
         assert entries_response.status_code == 422
-
-
-@pytest.mark.integration
-class TestSecurityAudit4Fixes:
-    """Test fixes for vulnerabilities found in Security Audit #4."""
 
     def test_priority_get_rejects_malicious_month(
         self, test_app, pocketbase_admin_client
@@ -1711,19 +1257,15 @@ class TestSecurityAudit4Fixes:
         )
 
         # Register a user
-        register_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_pri_get",
-                "password": "TestPass123!",
-                "passwordConfirm": "TestPass123!",
-                "name": "Test User",
-                "institution_short_code": "TEST_PRI_GET",
-                "magic_word": "TestMagic123",
-                "keep_logged_in": True,
-            },
+        create_user(
+            test_app,
+            "user_pri_get",
+            "TestPass123!",
+            "Test User",
+            "TEST_PRI_GET",
+            "TestMagic123",
+            keep_logged_in=True,
         )
-        assert register_response.status_code == 200
 
         # Try to get priorities with malicious month value
         malicious_month = f'{datetime.now().strftime("%Y-%m")}" || userId!=""'
@@ -1735,7 +1277,7 @@ class TestSecurityAudit4Fixes:
         assert (
             "monat" in error_detail
             or "format" in error_detail
-            or "unconverted" in error_detail  # datetime parsing error
+            or "unconverted" in error_detail
         )
 
     def test_priority_delete_rejects_malicious_month(
@@ -1755,19 +1297,15 @@ class TestSecurityAudit4Fixes:
         )
 
         # Register a user
-        register_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_pri_del",
-                "password": "TestPass456!",
-                "passwordConfirm": "TestPass456!",
-                "name": "Test User Delete",
-                "institution_short_code": "TEST_PRI_DEL",
-                "magic_word": "TestMagic456",
-                "keep_logged_in": True,
-            },
+        create_user(
+            test_app,
+            "user_pri_del",
+            "TestPass456!",
+            "Test User Delete",
+            "TEST_PRI_DEL",
+            "TestMagic456",
+            keep_logged_in=True,
         )
-        assert register_response.status_code == 200
 
         # Try to delete priorities with malicious month value
         malicious_month = f'{datetime.now().strftime("%Y-%m")}" || identifier!=null'
@@ -1779,7 +1317,7 @@ class TestSecurityAudit4Fixes:
         assert (
             "monat" in error_detail
             or "format" in error_detail
-            or "unconverted" in error_detail  # datetime parsing error
+            or "unconverted" in error_detail
         )
 
     def test_vacation_day_get_rejects_malicious_date(
@@ -1797,7 +1335,6 @@ class TestSecurityAudit4Fixes:
             "TEST_VD_GET",
             "TestVDGet123",
         )
-
         register_and_elevate_to_admin(
             test_app=test_app,
             pocketbase_admin_client=pocketbase_admin_client,
@@ -1818,7 +1355,7 @@ class TestSecurityAudit4Fixes:
         assert "format" in error_detail or "unconverted" in error_detail
 
     def test_vacation_day_update_rejects_malicious_date(
-        self, test_app, pocketbase_admin_client, pocketbase_url, clean_redis
+        self, test_app, pocketbase_admin_client
     ):
         """
         Test that PUT /api/v1/admin/vacation-days/{date} rejects malicious date values.
@@ -1832,13 +1369,12 @@ class TestSecurityAudit4Fixes:
             "TEST_VD_PUT",
             "TestVDPut456",
         )
-
         register_and_elevate_to_admin(
             test_app=test_app,
             pocketbase_admin_client=pocketbase_admin_client,
             username="admin_vd_put",
             password="AdminVDPut456!",
-            name="Admin VD Get",
+            name="Admin VD Put",
             institution_short_code="TEST_VD_PUT",
             magic_word="TestVDPut456",
         )
@@ -1870,7 +1406,6 @@ class TestSecurityAudit4Fixes:
             "TEST_VD_DEL",
             "TestVDDel789",
         )
-
         register_and_elevate_to_admin(
             test_app=test_app,
             pocketbase_admin_client=pocketbase_admin_client,
@@ -1912,19 +1447,15 @@ class TestSecurityAudit4Fixes:
         )
 
         # Register a user
-        register_response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "user_pw_change",
-                "password": "OldPassword123!",
-                "passwordConfirm": "OldPassword123!",
-                "name": "Test User PW",
-                "institution_short_code": "TEST_PW_CHANGE",
-                "magic_word": "TestPWChange123",
-                "keep_logged_in": True,
-            },
+        register_response = create_user(
+            test_app,
+            "user_pw_change",
+            "OldPassword123!",
+            "Test User PW",
+            "TEST_PW_CHANGE",
+            "TestPWChange123",
+            keep_logged_in=True,
         )
-        assert register_response.status_code == 200
 
         # Get the auth token from session 1
         session1_cookies = register_response.cookies
@@ -1973,18 +1504,16 @@ class TestSecurityAudit4Fixes:
         test_app.cookies.clear()
         test_app.cookies.update(session1_cookies)
         verify_old_session_response = test_app.get("/api/v1/auth/verify")
-        # Session 1 should be invalid (401 Unauthorized)
         assert verify_old_session_response.status_code == 401, (
-            f"Session 1 was expected to be invalid (401 but got {verify_old_session_response.status_code})"
+            f"Session 1 was expected to be invalid (401) but got {verify_old_session_response.status_code}"
         )
 
         # Verify that session 2 (the one that changed password) is also INVALID
-        # because it was replaced with session 3
         test_app.cookies.clear()
         test_app.cookies.update(session2_cookies)
         verify_pw_change_session_response = test_app.get("/api/v1/auth/verify")
         assert verify_pw_change_session_response.status_code == 401, (
-            f"Session 2 was expected to be invalid (401 but got {verify_pw_change_session_response.status_code})"
+            f"Session 2 was expected to be invalid (401) but got {verify_pw_change_session_response.status_code}"
         )
 
         # Verify that the NEW session (session 3) works
@@ -2006,4 +1535,3 @@ class TestSecurityAudit4Fixes:
             },
         )
         assert login_new_pw_response.status_code == 200
-        test_app.cookies = login_new_pw_response.cookies
