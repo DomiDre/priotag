@@ -7,6 +7,8 @@ interface AuthState {
 	userId?: string;
 	username?: string;
 	isAdmin?: boolean;
+	role?: 'user' | 'institution_admin' | 'super_admin';
+	institutionId?: string;
 }
 
 function createAuthStore() {
@@ -34,14 +36,23 @@ function createAuthStore() {
 		/**
 		 * Set authentication state after successful login
 		 */
-		setAuth: (userInfo?: { userId: string; username: string; role: string }) => {
+		setAuth: (userInfo?: {
+			userId: string;
+			username: string;
+			role: 'user' | 'institution_admin' | 'super_admin';
+			institutionId?: string;
+		}) => {
 			if (browser) {
 				sessionStorage.setItem('was_authenticated', 'true');
 			}
 
 			set({
 				isAuthenticated: true,
-				...userInfo
+				userId: userInfo?.userId,
+				username: userInfo?.username,
+				isAdmin: userInfo?.role === 'institution_admin' || userInfo?.role === 'super_admin',
+				role: userInfo?.role,
+				institutionId: userInfo?.institutionId
 			});
 		},
 
@@ -94,11 +105,15 @@ function createAuthStore() {
 					return false;
 				}
 
+				const role = data['role'] as 'user' | 'institution_admin' | 'super_admin' | undefined;
+
 				set({
 					isAuthenticated: true,
 					userId: data['user_id'],
 					username: data['username'],
-					isAdmin: data['is_admin']
+					isAdmin: data['is_admin'],
+					role: role,
+					institutionId: data['institution_id']
 				});
 				sessionStorage.setItem('was_authenticated', 'true');
 				return true;
@@ -125,5 +140,9 @@ export const isAuthenticated = derived(authStore, ($auth) => $auth.isAuthenticat
 export const currentUser = derived(authStore, ($auth) => ({
 	userId: $auth.userId,
 	username: $auth.username,
-	isAdmin: $auth.isAdmin
+	isAdmin: $auth.isAdmin,
+	role: $auth.role,
+	institutionId: $auth.institutionId,
+	isSuperAdmin: $auth.role === 'super_admin',
+	isInstitutionAdmin: $auth.role === 'institution_admin'
 }));

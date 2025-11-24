@@ -760,6 +760,8 @@ async def verify_session(
         "user_id": current_session.id,
         "username": current_session.username,
         "is_admin": current_session.is_admin,
+        "role": current_session.role,
+        "institution_id": current_session.institution_id,
     }
 
 

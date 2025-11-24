@@ -10,6 +10,11 @@ import type {
 	BulkVacationDayCreate,
 	BulkVacationDayResponse
 } from '$lib/vacation-days.types';
+import type {
+	InstitutionDetailResponse,
+	CreateInstitutionRequest,
+	UpdateInstitutionRequest
+} from '$lib/institution.types';
 
 export class ApiService {
 	public baseUrl: string;
@@ -140,16 +145,41 @@ export class ApiService {
 
 	// ==================== Admin Endpoints ====================
 
-	async getMagicWordInfo() {
-		return this.requestJson('/admin/magic-word-info', {
+	// Institution Admin Endpoints
+	async getInstitutionInfo(): Promise<InstitutionDetailResponse> {
+		return this.requestJson('/admin/institution/info', {
 			method: 'GET'
 		});
 	}
 
-	async updateMagicWord(newMagicWord: string) {
-		return this.requestJson('/admin/update-magic-word', {
-			method: 'POST',
+	async updateMagicWord(newMagicWord: string): Promise<{ success: boolean; message: string }> {
+		return this.requestJson('/admin/institution/magic-word', {
+			method: 'PATCH',
 			body: JSON.stringify({ new_magic_word: newMagicWord })
+		});
+	}
+
+	// Super Admin - Institution Management
+	async listAllInstitutions(): Promise<InstitutionDetailResponse[]> {
+		return this.requestJson('/admin/super/institutions', {
+			method: 'GET'
+		});
+	}
+
+	async createInstitution(data: CreateInstitutionRequest): Promise<InstitutionDetailResponse> {
+		return this.requestJson('/admin/super/institutions', {
+			method: 'POST',
+			body: JSON.stringify(data)
+		});
+	}
+
+	async updateInstitution(
+		institutionId: string,
+		data: UpdateInstitutionRequest
+	): Promise<InstitutionDetailResponse> {
+		return this.requestJson(`/admin/super/institutions/${institutionId}`, {
+			method: 'PUT',
+			body: JSON.stringify(data)
 		});
 	}
 
