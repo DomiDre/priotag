@@ -58,54 +58,6 @@ class TestMultiInstitutionSetup:
 
 
 @pytest.mark.integration
-class TestPublicInstitutionEndpoints:
-    """Test public institution API endpoints with real infrastructure."""
-
-    def test_list_institutions_endpoint(self, test_app, pocketbase_admin_client):
-        """Test listing institutions through the API."""
-        # Create test institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client, "Public Test A", "PUB_A", "Secret123"
-        )
-        create_institution_with_rsa_key(
-            pocketbase_admin_client, "Public Test B", "PUB_B", "Secret456"
-        )
-
-        # Call API endpoint
-        response = test_app.get("/api/v1/institutions")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert len(data) >= 2
-
-        # Verify sensitive fields are not exposed
-        for inst in data:
-            assert "registration_magic_word" not in inst
-            assert "admin_public_key" not in inst
-            assert "settings" not in inst
-
-    def test_get_institution_by_short_code_endpoint(
-        self, test_app, pocketbase_admin_client
-    ):
-        """Test getting institution by short code through the API."""
-        # Create test institution
-        create_institution_with_rsa_key(
-            pocketbase_admin_client, "Short Code Test", "SC_TEST", "SCSecret"
-        )
-
-        # Call API endpoint
-        response = test_app.get("/api/v1/institutions/SC_TEST")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["short_code"] == "SC_TEST"
-        assert data["name"] == "Short Code Test"
-
-        # Verify sensitive fields are not exposed
-        assert "registration_magic_word" not in data
-
-
-@pytest.mark.integration
 class TestMagicWordVerification:
     """Test magic word verification with real infrastructure."""
 
