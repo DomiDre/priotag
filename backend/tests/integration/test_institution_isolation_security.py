@@ -3,6 +3,13 @@ Security integration tests for multi-institution data isolation.
 
 These tests verify that institution admins CANNOT access other institutions' data
 and that data isolation is properly enforced at the API level.
+
+Tests are organized by role:
+- TestInstitutionAdminIsolation: Institution admins CANNOT cross boundaries
+- TestSuperAdminAccess: Super admins CAN access all data
+- TestRegularUserIsolation: Regular users CANNOT cross boundaries
+- TestDataIntegrity: Data is stored with correct institution_id
+- TestInputValidation: Input validation prevents injection attacks
 """
 
 from datetime import datetime, timedelta
@@ -43,17 +50,20 @@ def create_user(
 
 
 @pytest.mark.integration
-class TestInstitutionDataIsolation:
-    """Test that institution admins cannot access other institutions' data."""
+class TestInstitutionAdminIsolation:
+    """
+    Test that institution admins CANNOT access data from other institutions.
 
-    def test_institution_admin_cannot_see_other_institutions_users(
+    These are CRITICAL security tests verifying institution boundaries for:
+    - User management (read, update, delete, count)
+    - Priority management (read, update, delete)
+    - Vacation day management (read, delete)
+    """
+
+    def test_cannot_see_other_institutions_users(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that institution admin A cannot see users from institution B.
-
-        This is a CRITICAL security test.
-        """
+        """Institution admin A cannot see users from institution B."""
         # Create two institutions
         create_institution_with_rsa_key(
             pocketbase_admin_client, "Institution A", "INST_A", "MagicA123"
@@ -100,14 +110,164 @@ class TestInstitutionDataIsolation:
         )
         assert user_b_info_response.status_code in [404, 403]
 
-    def test_institution_admin_cannot_see_other_institutions_priorities(
+    def test_cannot_update_other_institutions_users(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that institution admin A cannot see priorities from institution B.
+        """Institution admin A cannot update users from institution B."""
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Update Test",
+            "INST_A_UPD",
+            "MagicA_upd",
+        )
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Update Test",
+            "INST_B_UPD",
+            "MagicB_upd",
+        )
 
-        This is a CRITICAL security test.
-        """
+        # Register user in Institution B
+        user_b_response = create_user(
+            test_app,
+            "user_b_upd",
+            "PassB_upd!",
+            "User B Update",
+            "INST_B_UPD",
+            "MagicB_upd",
+        )
+        user_b_id = user_b_response.json()["id"]
+
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_upd",
+            password="AdminA_upd!",
+            name="Admin A Update",
+            institution_short_code="INST_A_UPD",
+            magic_word="MagicA_upd",
+        )
+
+        # Try to update user B (should fail - different institution)
+        update_response = test_app.put(
+            f"/api/v1/admin/users/{user_b_id}",
+            json={"username": "hacked_username"},
+        )
+        assert update_response.status_code in [404, 403]
+
+    def test_cannot_delete_other_institutions_users(
+        self, test_app, pocketbase_admin_client
+    ):
+        """Institution admin A cannot delete users from institution B."""
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Delete Test",
+            "INST_A_DEL",
+            "MagicA_del",
+        )
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Delete Test",
+            "INST_B_DEL",
+            "MagicB_del",
+        )
+
+        # Register user in Institution B
+        user_b_response = create_user(
+            test_app,
+            "user_b_del",
+            "PassB_del!",
+            "User B Delete",
+            "INST_B_DEL",
+            "MagicB_del",
+        )
+        user_b_id = user_b_response.json()["id"]
+
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_del",
+            password="AdminA_del!",
+            name="Admin A Delete",
+            institution_short_code="INST_A_DEL",
+            magic_word="MagicA_del",
+        )
+
+        # Try to delete user B (should fail - different institution)
+        delete_response = test_app.delete(f"/api/v1/admin/users/{user_b_id}")
+        assert delete_response.status_code in [404, 403]
+
+        # Verify user B still exists
+        user_check = pocketbase_admin_client.get(
+            f"/api/collections/users/records/{user_b_id}"
+        )
+        assert user_check.status_code == 200
+
+    def test_total_users_count_is_filtered(self, test_app, pocketbase_admin_client):
+        """Institution admin only sees user count from their institution."""
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Count Test",
+            "INST_A_CNT",
+            "MagicA_cnt",
+        )
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Count Test",
+            "INST_B_CNT",
+            "MagicB_cnt",
+        )
+
+        # Register 2 users in Institution A
+        for i in range(2):
+            create_user(
+                test_app,
+                f"user_a{i}",
+                f"PassA{i}!",
+                f"User A{i}",
+                "INST_A_CNT",
+                "MagicA_cnt",
+            )
+
+        # Register 3 users in Institution B
+        for i in range(3):
+            create_user(
+                test_app,
+                f"user_b{i}",
+                f"PassB{i}!",
+                f"User B{i}",
+                "INST_B_CNT",
+                "MagicB_cnt",
+            )
+
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_cnt",
+            password="AdminA_cnt!",
+            name="Admin A Count",
+            institution_short_code="INST_A_CNT",
+            magic_word="MagicA_cnt",
+        )
+
+        # Get total users (should only count institution A users)
+        total_users_response = test_app.get("/api/v1/admin/total-users")
+        assert total_users_response.status_code == 200
+        total_users_data = total_users_response.json()
+
+        # Should see 2 users + 1 admin = 3 total for institution A
+        assert total_users_data["totalUsers"] == 3
+
+    def test_cannot_see_other_institutions_priorities(
+        self, test_app, pocketbase_admin_client
+    ):
+        """Institution admin A cannot see priorities from institution B."""
         # Create two institutions
         create_institution_with_rsa_key(
             pocketbase_admin_client,
@@ -179,744 +339,10 @@ class TestInstitutionDataIsolation:
         priority_ids = [s["priorityId"] for s in submissions]
         assert priority_b_id not in priority_ids
 
-    def test_institution_admin_cannot_update_other_institutions_users(
+    def test_cannot_update_other_institution_priorities(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that institution admin A cannot update users from institution B.
-
-        This is a CRITICAL security test.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Update Test",
-            "INST_A_UPD",
-            "MagicA_upd",
-        )
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Update Test",
-            "INST_B_UPD",
-            "MagicB_upd",
-        )
-
-        # Register user in Institution B
-        user_b_response = create_user(
-            test_app,
-            "user_b_upd",
-            "PassB_upd!",
-            "User B Update",
-            "INST_B_UPD",
-            "MagicB_upd",
-        )
-        user_b_id = user_b_response.json()["id"]
-
-        # Register and elevate admin in Institution A
-        register_and_elevate_to_admin(
-            test_app=test_app,
-            pocketbase_admin_client=pocketbase_admin_client,
-            username="admin_a_upd",
-            password="AdminA_upd!",
-            name="Admin A Update",
-            institution_short_code="INST_A_UPD",
-            magic_word="MagicA_upd",
-        )
-
-        # Try to update user B (should fail - different institution)
-        update_response = test_app.put(
-            f"/api/v1/admin/users/{user_b_id}",
-            json={"username": "hacked_username"},
-        )
-        assert update_response.status_code in [404, 403]
-
-    def test_institution_admin_cannot_delete_other_institutions_users(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that institution admin A cannot delete users from institution B.
-
-        This is a CRITICAL security test.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Delete Test",
-            "INST_A_DEL",
-            "MagicA_del",
-        )
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Delete Test",
-            "INST_B_DEL",
-            "MagicB_del",
-        )
-
-        # Register user in Institution B
-        user_b_response = create_user(
-            test_app,
-            "user_b_del",
-            "PassB_del!",
-            "User B Delete",
-            "INST_B_DEL",
-            "MagicB_del",
-        )
-        user_b_id = user_b_response.json()["id"]
-
-        # Register and elevate admin in Institution A
-        register_and_elevate_to_admin(
-            test_app=test_app,
-            pocketbase_admin_client=pocketbase_admin_client,
-            username="admin_a_del",
-            password="AdminA_del!",
-            name="Admin A Delete",
-            institution_short_code="INST_A_DEL",
-            magic_word="MagicA_del",
-        )
-
-        # Try to delete user B (should fail - different institution)
-        delete_response = test_app.delete(f"/api/v1/admin/users/{user_b_id}")
-        assert delete_response.status_code in [404, 403]
-
-        # Verify user B still exists
-        user_check = pocketbase_admin_client.get(
-            f"/api/collections/users/records/{user_b_id}"
-        )
-        assert user_check.status_code == 200
-
-    def test_institution_admin_total_users_count_is_filtered(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that institution admin only sees user count from their institution.
-
-        This is a CRITICAL security test.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Count Test",
-            "INST_A_CNT",
-            "MagicA_cnt",
-        )
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Count Test",
-            "INST_B_CNT",
-            "MagicB_cnt",
-        )
-
-        # Register 2 users in Institution A
-        for i in range(2):
-            create_user(
-                test_app,
-                f"user_a{i}",
-                f"PassA{i}!",
-                f"User A{i}",
-                "INST_A_CNT",
-                "MagicA_cnt",
-            )
-
-        # Register 3 users in Institution B
-        for i in range(3):
-            create_user(
-                test_app,
-                f"user_b{i}",
-                f"PassB{i}!",
-                f"User B{i}",
-                "INST_B_CNT",
-                "MagicB_cnt",
-            )
-
-        # Register and elevate admin in Institution A
-        register_and_elevate_to_admin(
-            test_app=test_app,
-            pocketbase_admin_client=pocketbase_admin_client,
-            username="admin_a_cnt",
-            password="AdminA_cnt!",
-            name="Admin A Count",
-            institution_short_code="INST_A_CNT",
-            magic_word="MagicA_cnt",
-        )
-
-        # Get total users (should only count institution A users)
-        total_users_response = test_app.get("/api/v1/admin/total-users")
-        assert total_users_response.status_code == 200
-        total_users_data = total_users_response.json()
-
-        # Should see 2 users + 1 admin = 3 total for institution A
-        assert total_users_data["totalUsers"] == 3
-
-
-@pytest.mark.integration
-class TestSuperAdminAccess:
-    """Test that super admins CAN access all institutions' data."""
-
-    def test_super_admin_can_see_all_institutions_users(
-        self, test_app, pocketbase_admin_client, pocketbase_url, clean_redis
-    ):
-        """
-        Test that super admin can see users from all institutions.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Super Test",
-            "INST_A_SUP",
-            "MagicA_sup",
-        )
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Super Test",
-            "INST_B_SUP",
-            "MagicB_sup",
-        )
-
-        # Register user in Institution A
-        user_a_response = create_user(
-            test_app,
-            "user_a_sup",
-            "PassA_sup!",
-            "User A Super",
-            "INST_A_SUP",
-            "MagicA_sup",
-        )
-        user_a_id = user_a_response.json()["id"]
-
-        # Register user in Institution B
-        user_b_response = create_user(
-            test_app,
-            "user_b_sup",
-            "PassB_sup!",
-            "User B Super",
-            "INST_B_SUP",
-            "MagicB_sup",
-        )
-        user_b_id = user_b_response.json()["id"]
-
-        # Create super admin directly in PocketBase (no institution)
-        pocketbase_admin_client.post(
-            "/api/collections/users/records",
-            json={
-                "username": "super_admin_test",
-                "password": "SuperAdmin123!",
-                "passwordConfirm": "SuperAdmin123!",
-                "role": "super_admin",
-                "institution_id": None,
-            },
-        )
-
-        # Login as super admin using helper function
-        login_with_pocketbase(
-            pocketbase_url=pocketbase_url,
-            test_app=test_app,
-            redis_client=clean_redis,
-            username="super_admin_test",
-            password="SuperAdmin123!",
-        )
-
-        # Super admin should be able to access user A
-        user_a_detail = test_app.get(f"/api/v1/admin/users/detail/{user_a_id}")
-        assert user_a_detail.status_code == 200
-
-        # Super admin should be able to access user B
-        user_b_detail = test_app.get(f"/api/v1/admin/users/detail/{user_b_id}")
-        assert user_b_detail.status_code == 200
-
-    def test_super_admin_total_users_includes_all_institutions(
-        self, test_app, pocketbase_admin_client, pocketbase_url, clean_redis
-    ):
-        """
-        Test that super admin sees total user count across all institutions.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Total Test",
-            "INST_A_TOT",
-            "MagicA_tot",
-        )
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Total Test",
-            "INST_B_TOT",
-            "MagicB_tot",
-        )
-
-        # Register 2 users in Institution A
-        for i in range(2):
-            create_user(
-                test_app,
-                f"user_a_tot{i}",
-                f"PassA_tot{i}!",
-                f"User A Tot {i}",
-                "INST_A_TOT",
-                "MagicA_tot",
-            )
-
-        # Register 3 users in Institution B
-        for i in range(3):
-            create_user(
-                test_app,
-                f"user_b_tot{i}",
-                f"PassB_tot{i}!",
-                f"User B Tot {i}",
-                "INST_B_TOT",
-                "MagicB_tot",
-            )
-
-        # Create super admin directly in PocketBase (no institution)
-        pocketbase_admin_client.post(
-            "/api/collections/users/records",
-            json={
-                "username": "super_admin_total_test",
-                "password": "SuperAdminTotal123!",
-                "passwordConfirm": "SuperAdminTotal123!",
-                "role": "super_admin",
-                "institution_id": None,
-            },
-        )
-
-        # Login as super admin using helper function
-        login_with_pocketbase(
-            pocketbase_url=pocketbase_url,
-            test_app=test_app,
-            redis_client=clean_redis,
-            username="super_admin_total_test",
-            password="SuperAdminTotal123!",
-        )
-
-        # Get total users (should include all institutions)
-        total_users_response = test_app.get("/api/v1/admin/total-users")
-        assert total_users_response.status_code == 200
-        total_users_data = total_users_response.json()
-
-        # Should see at least 2 + 3 + 1 (super admin) = 6 users
-        # May include service account or other system users
-        assert total_users_data["totalUsers"] >= 6
-
-
-@pytest.mark.integration
-class TestVacationDaysIsolation:
-    """Test that vacation days are properly isolated between institutions."""
-
-    def test_institution_admin_cannot_see_other_institutions_vacation_days(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that institution admin A cannot see vacation days from institution B.
-
-        This is a CRITICAL security test.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Vacation Test",
-            "INST_A_VAC",
-            "MagicA_vac",
-        )
-        inst_b = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Vacation Test",
-            "INST_B_VAC",
-            "MagicB_vac",
-        )
-
-        # Create vacation day for institution B directly in PocketBase
-        vacation_b = pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": (datetime.now() + timedelta(days=100)).strftime("%Y-%m-%d"),
-                "type": "public_holiday",
-                "description": "Christmas",
-                "created_by": "admin_b",
-                "institution_id": inst_b["id"],
-            },
-        ).json()
-
-        # Register and elevate admin in Institution A
-        register_and_elevate_to_admin(
-            test_app=test_app,
-            pocketbase_admin_client=pocketbase_admin_client,
-            username="admin_a_vac",
-            password="AdminAVac!",
-            name="Admin A Vacation",
-            institution_short_code="INST_A_VAC",
-            magic_word="MagicA_vac",
-        )
-
-        # Get all vacation days (should NOT include institution B's vacation day)
-        vacation_response = test_app.get("/api/v1/admin/vacation-days")
-        assert vacation_response.status_code == 200
-        vacation_days = vacation_response.json()
-
-        # Verify that institution B's vacation day is NOT in the results
-        vacation_ids = [v["id"] for v in vacation_days]
-        assert vacation_b["id"] not in vacation_ids
-
-    def test_institution_admin_cannot_delete_other_institutions_vacation_days(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that institution admin A cannot delete vacation days from institution B.
-
-        This is a CRITICAL security test.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Delete Vac Test",
-            "INST_A_DEL_VAC",
-            "MagicA_del_vac",
-        )
-        inst_b = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Delete Vac Test",
-            "INST_B_DEL_VAC",
-            "MagicB_del_vac",
-        )
-
-        # Create vacation day for institution B
-        vacation_date = (datetime.now() + timedelta(days=150)).strftime("%Y-%m-%d")
-        vacation_b = pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vacation_date,
-                "type": "public_holiday",
-                "description": "Independence Day",
-                "created_by": "admin_b",
-                "institution_id": inst_b["id"],
-            },
-        ).json()
-
-        # Register and elevate admin in Institution A
-        register_and_elevate_to_admin(
-            test_app=test_app,
-            pocketbase_admin_client=pocketbase_admin_client,
-            username="admin_a_del_vac",
-            password="AdminADelVac!",
-            name="Admin A Delete Vac",
-            institution_short_code="INST_A_DEL_VAC",
-            magic_word="MagicA_del_vac",
-        )
-
-        # Try to delete institution B's vacation day (should fail)
-        delete_response = test_app.delete(
-            f"/api/v1/admin/vacation-days/{vacation_date}"
-        )
-        assert delete_response.status_code in [403, 404]
-
-        # Verify vacation day still exists
-        vac_check = pocketbase_admin_client.get(
-            f"/api/collections/vacation_days/records/{vacation_b['id']}"
-        )
-        assert vac_check.status_code == 200
-
-    def test_institution_admin_can_create_vacation_days_for_own_institution(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that institution admin can create vacation days for their own institution.
-        """
-        # Create institution
-        inst = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution Create Vac Test",
-            "INST_CREATE_VAC",
-            "MagicCreate_vac",
-        )
-
-        # Register and elevate admin
-        register_and_elevate_to_admin(
-            test_app=test_app,
-            pocketbase_admin_client=pocketbase_admin_client,
-            username="admin_create_vac",
-            password="AdminCreateVac!",
-            name="Admin Create Vac",
-            institution_short_code="INST_CREATE_VAC",
-            magic_word="MagicCreate_vac",
-        )
-
-        # Create vacation day (should succeed)
-        vacation_date = (datetime.now() + timedelta(days=200)).strftime("%Y-%m-%d")
-        create_response = test_app.post(
-            "/api/v1/admin/vacation-days",
-            json={
-                "date": vacation_date,
-                "type": "vacation",
-                "description": "Christmas Eve",
-            },
-        )
-        assert create_response.status_code == 200
-        created_vacation = create_response.json()
-
-        # Verify vacation day has correct institution_id
-        vac_check = pocketbase_admin_client.get(
-            f"/api/collections/vacation_days/records/{created_vacation['id']}"
-        )
-        assert vac_check.status_code == 200
-        vac_data = vac_check.json()
-        assert vac_data["institution_id"] == inst["id"]
-
-    def test_user_cannot_see_other_institutions_vacation_days(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that regular user in Institution A cannot see vacation days from Institution B.
-
-        This is a CRITICAL security test for user-facing vacation days endpoints.
-        """
-        # Create two institutions
-        inst_a = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A User Vac Test",
-            "INST_A_USER_VAC",
-            "MagicAUserVac",
-        )
-        inst_b = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B User Vac Test",
-            "INST_B_USER_VAC",
-            "MagicBUserVac",
-        )
-
-        # Create vacation day for institution B
-        vac_b_date = (datetime.now() + timedelta(days=250)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_b_date,
-                "type": "public_holiday",
-                "description": "New Year's Eve",
-                "created_by": "admin_b",
-                "institution_id": inst_b["id"],
-            },
-        )
-
-        # Create vacation day for institution A
-        vac_a_date = (datetime.now() + timedelta(days=260)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_a_date,
-                "type": "vacation",
-                "description": "Institution A Vacation",
-                "created_by": "admin_a",
-                "institution_id": inst_a["id"],
-            },
-        )
-
-        # Register regular user in Institution A
-        create_user(
-            test_app,
-            "user_a_vac",
-            "UserAVac123!",
-            "User A Vac",
-            "INST_A_USER_VAC",
-            "MagicAUserVac",
-            keep_logged_in=True,
-        )
-
-        # Get all vacation days as user A (should NOT include institution B's vacation day)
-        query_year = (datetime.now() + timedelta(days=260)).year
-        vacation_response = test_app.get(f"/api/v1/vacation-days?year={query_year}")
-        assert vacation_response.status_code == 200
-        vacation_days = vacation_response.json()
-
-        # Verify user A can only see their institution's vacation days
-        vacation_dates = [v["date"] for v in vacation_days]
-        assert any(
-            vd.startswith(vac_a_date) for vd in vacation_dates
-        )  # Institution A's
-        assert not any(
-            vd.startswith(vac_b_date) for vd in vacation_dates
-        )  # Institution B's
-
-    def test_user_cannot_see_other_institution_vacation_days_by_date(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that regular user cannot query specific vacation days from other institutions.
-        """
-        # Create two institutions
-        create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A User Vac Single Test",
-            "INST_A_USER_VAC_SINGLE",
-            "MagicAUserVacSingle",
-        )
-        inst_b = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B User Vac Single Test",
-            "INST_B_USER_VAC_SINGLE",
-            "MagicBUserVacSingle",
-        )
-
-        # Create vacation day for institution B
-        vac_b_single_date = (datetime.now() + timedelta(days=270)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_b_single_date,
-                "type": "public_holiday",
-                "description": "Institution B Holiday",
-                "created_by": "admin_b",
-                "institution_id": inst_b["id"],
-            },
-        )
-
-        # Register regular user in Institution A
-        create_user(
-            test_app,
-            "user_a_vac_single",
-            "UserAVacSingle123!",
-            "User A Vac Single",
-            "INST_A_USER_VAC_SINGLE",
-            "MagicAUserVacSingle",
-            keep_logged_in=True,
-        )
-
-        # Try to get Institution B's vacation day by date (should fail)
-        vacation_response = test_app.get(f"/api/v1/vacation-days/{vac_b_single_date}")
-        assert (
-            vacation_response.status_code == 404
-        )  # Not found (filtered by institution)
-
-    def test_user_vacation_days_range_endpoint_filters_by_institution(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that vacation days range endpoint filters by institution.
-        """
-        # Create two institutions
-        inst_a = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution A Range Test",
-            "INST_A_RANGE",
-            "MagicARange",
-        )
-        inst_b = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution B Range Test",
-            "INST_B_RANGE",
-            "MagicBRange",
-        )
-
-        # Create vacation days for both institutions in same date range
-        vac_range_a_date = (datetime.now() + timedelta(days=280)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_range_a_date,
-                "type": "vacation",
-                "description": "Institution A June Vacation",
-                "created_by": "admin_a",
-                "institution_id": inst_a["id"],
-            },
-        )
-
-        vac_range_b_date = (datetime.now() + timedelta(days=295)).strftime("%Y-%m-%d")
-        pocketbase_admin_client.post(
-            "/api/collections/vacation_days/records",
-            json={
-                "date": vac_range_b_date,
-                "type": "vacation",
-                "description": "Institution B June Vacation",
-                "created_by": "admin_b",
-                "institution_id": inst_b["id"],
-            },
-        )
-
-        # Register user in Institution A
-        create_user(
-            test_app,
-            "user_a_range",
-            "UserARange123!",
-            "User A Range",
-            "INST_A_RANGE",
-            "MagicARange",
-            keep_logged_in=True,
-        )
-
-        # Get vacation days in range (should only see Institution A's)
-        start_date = (datetime.now() + timedelta(days=275)).strftime("%Y-%m-%d")
-        end_date = (datetime.now() + timedelta(days=300)).strftime("%Y-%m-%d")
-        vacation_response = test_app.get(
-            f"/api/v1/vacation-days/range?start_date={start_date}&end_date={end_date}"
-        )
-        assert vacation_response.status_code == 200
-        vacation_days = vacation_response.json()
-
-        # Should only see Institution A's vacation day
-        assert len(vacation_days) == 1
-        assert vacation_days[0]["date"].startswith(vac_range_a_date)
-        assert vacation_days[0]["description"] == "Institution A June Vacation"
-
-
-@pytest.mark.integration
-class TestPrioritiesIsolation:
-    """Test that priorities are properly isolated between institutions."""
-
-    def test_user_priority_save_includes_institution_id(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that when users save priorities, institution_id is included.
-        """
-        # Create institution
-        inst = create_institution_with_rsa_key(
-            pocketbase_admin_client,
-            "Institution Priority Test",
-            "INST_PRIO",
-            "MagicPrio123",
-        )
-
-        # Register user
-        user_response = create_user(
-            test_app,
-            "user_prio",
-            "UserPrio123!",
-            "User Priority",
-            "INST_PRIO",
-            "MagicPrio123",
-            keep_logged_in=True,
-        )
-        user_id = user_response.json()["id"]
-
-        # Save priorities
-        test_month = (datetime.now() + timedelta(days=35)).strftime("%Y-%m")
-        save_response = test_app.put(
-            f"/api/v1/priorities/{test_month}",
-            json=[
-                {
-                    "weekNumber": 1,
-                    "monday": 1,
-                    "tuesday": 2,
-                    "wednesday": 3,
-                    "thursday": 1,
-                    "friday": 2,
-                }
-            ],
-        )
-        assert save_response.status_code == 200
-
-        # Verify priority has institution_id
-        priorities = pocketbase_admin_client.get(
-            "/api/collections/priorities/records",
-            params={"filter": f'userId="{user_id}" && month="{test_month}"'},
-        ).json()
-
-        assert len(priorities["items"]) == 1
-        assert priorities["items"][0]["institution_id"] == inst["id"]
-
-    def test_institution_admin_cannot_update_other_institution_priorities(
-        self, test_app, pocketbase_admin_client
-    ):
-        """
-        Test that institution admin from A cannot update priorities from Institution B.
-
-        This is a CRITICAL security test.
-        """
+        """Institution admin from A cannot update priorities from Institution B."""
         # Create two institutions
         create_institution_with_rsa_key(
             pocketbase_admin_client,
@@ -986,14 +412,10 @@ class TestPrioritiesIsolation:
         )
         assert update_response.status_code in [401, 404, 403]
 
-    def test_institution_admin_cannot_delete_other_institution_priorities(
+    def test_cannot_delete_other_institution_priorities(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that institution admin from A cannot delete priorities from Institution B.
-
-        This is a CRITICAL security test.
-        """
+        """Institution admin from A cannot delete priorities from Institution B."""
         # Create two institutions
         create_institution_with_rsa_key(
             pocketbase_admin_client,
@@ -1066,17 +488,577 @@ class TestPrioritiesIsolation:
         )
         assert verify_response.status_code == 200
 
+    def test_cannot_see_other_institutions_vacation_days(
+        self, test_app, pocketbase_admin_client
+    ):
+        """Institution admin A cannot see vacation days from institution B."""
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Vacation Test",
+            "INST_A_VAC",
+            "MagicA_vac",
+        )
+        inst_b = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Vacation Test",
+            "INST_B_VAC",
+            "MagicB_vac",
+        )
+
+        # Create vacation day for institution B directly in PocketBase
+        vacation_b = pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": (datetime.now() + timedelta(days=100)).strftime("%Y-%m-%d"),
+                "type": "public_holiday",
+                "description": "Christmas",
+                "created_by": "admin_b",
+                "institution_id": inst_b["id"],
+            },
+        ).json()
+
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_vac",
+            password="AdminAVac!",
+            name="Admin A Vacation",
+            institution_short_code="INST_A_VAC",
+            magic_word="MagicA_vac",
+        )
+
+        # Get all vacation days (should NOT include institution B's vacation day)
+        vacation_response = test_app.get("/api/v1/admin/vacation-days")
+        assert vacation_response.status_code == 200
+        vacation_days = vacation_response.json()
+
+        # Verify that institution B's vacation day is NOT in the results
+        vacation_ids = [v["id"] for v in vacation_days]
+        assert vacation_b["id"] not in vacation_ids
+
+    def test_cannot_delete_other_institutions_vacation_days(
+        self, test_app, pocketbase_admin_client
+    ):
+        """Institution admin A cannot delete vacation days from institution B."""
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Delete Vac Test",
+            "INST_A_DEL_VAC",
+            "MagicA_del_vac",
+        )
+        inst_b = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Delete Vac Test",
+            "INST_B_DEL_VAC",
+            "MagicB_del_vac",
+        )
+
+        # Create vacation day for institution B
+        vacation_date = (datetime.now() + timedelta(days=150)).strftime("%Y-%m-%d")
+        vacation_b = pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vacation_date,
+                "type": "public_holiday",
+                "description": "Independence Day",
+                "created_by": "admin_b",
+                "institution_id": inst_b["id"],
+            },
+        ).json()
+
+        # Register and elevate admin in Institution A
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_a_del_vac",
+            password="AdminADelVac!",
+            name="Admin A Delete Vac",
+            institution_short_code="INST_A_DEL_VAC",
+            magic_word="MagicA_del_vac",
+        )
+
+        # Try to delete institution B's vacation day (should fail)
+        delete_response = test_app.delete(
+            f"/api/v1/admin/vacation-days/{vacation_date}"
+        )
+        assert delete_response.status_code in [403, 404]
+
+        # Verify vacation day still exists
+        vac_check = pocketbase_admin_client.get(
+            f"/api/collections/vacation_days/records/{vacation_b['id']}"
+        )
+        assert vac_check.status_code == 200
+
 
 @pytest.mark.integration
-class TestInputValidationAndSecurityFixes:
-    """Test input validation and fixes for security audit findings."""
+class TestSuperAdminAccess:
+    """
+    Test that super admins CAN access data from all institutions.
+
+    Super admins have global access and should be able to view/manage
+    data across all institution boundaries.
+    """
+
+    def test_can_see_all_institutions_users(
+        self, test_app, pocketbase_admin_client, pocketbase_url, clean_redis
+    ):
+        """Super admin can see users from all institutions."""
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Super Test",
+            "INST_A_SUP",
+            "MagicA_sup",
+        )
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Super Test",
+            "INST_B_SUP",
+            "MagicB_sup",
+        )
+
+        # Register user in Institution A
+        user_a_response = create_user(
+            test_app,
+            "user_a_sup",
+            "PassA_sup!",
+            "User A Super",
+            "INST_A_SUP",
+            "MagicA_sup",
+        )
+        user_a_id = user_a_response.json()["id"]
+
+        # Register user in Institution B
+        user_b_response = create_user(
+            test_app,
+            "user_b_sup",
+            "PassB_sup!",
+            "User B Super",
+            "INST_B_SUP",
+            "MagicB_sup",
+        )
+        user_b_id = user_b_response.json()["id"]
+
+        # Create super admin directly in PocketBase (no institution)
+        pocketbase_admin_client.post(
+            "/api/collections/users/records",
+            json={
+                "username": "super_admin_test",
+                "password": "SuperAdmin123!",
+                "passwordConfirm": "SuperAdmin123!",
+                "role": "super_admin",
+                "institution_id": None,
+            },
+        )
+
+        # Login as super admin using helper function
+        login_with_pocketbase(
+            pocketbase_url=pocketbase_url,
+            test_app=test_app,
+            redis_client=clean_redis,
+            username="super_admin_test",
+            password="SuperAdmin123!",
+        )
+
+        # Super admin should be able to access user A
+        user_a_detail = test_app.get(f"/api/v1/admin/users/detail/{user_a_id}")
+        assert user_a_detail.status_code == 200
+
+        # Super admin should be able to access user B
+        user_b_detail = test_app.get(f"/api/v1/admin/users/detail/{user_b_id}")
+        assert user_b_detail.status_code == 200
+
+    def test_total_users_includes_all_institutions(
+        self, test_app, pocketbase_admin_client, pocketbase_url, clean_redis
+    ):
+        """Super admin sees total user count across all institutions."""
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Total Test",
+            "INST_A_TOT",
+            "MagicA_tot",
+        )
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Total Test",
+            "INST_B_TOT",
+            "MagicB_tot",
+        )
+
+        # Register 2 users in Institution A
+        for i in range(2):
+            create_user(
+                test_app,
+                f"user_a_tot{i}",
+                f"PassA_tot{i}!",
+                f"User A Tot {i}",
+                "INST_A_TOT",
+                "MagicA_tot",
+            )
+
+        # Register 3 users in Institution B
+        for i in range(3):
+            create_user(
+                test_app,
+                f"user_b_tot{i}",
+                f"PassB_tot{i}!",
+                f"User B Tot {i}",
+                "INST_B_TOT",
+                "MagicB_tot",
+            )
+
+        # Create super admin directly in PocketBase (no institution)
+        pocketbase_admin_client.post(
+            "/api/collections/users/records",
+            json={
+                "username": "super_admin_total_test",
+                "password": "SuperAdminTotal123!",
+                "passwordConfirm": "SuperAdminTotal123!",
+                "role": "super_admin",
+                "institution_id": None,
+            },
+        )
+
+        # Login as super admin using helper function
+        login_with_pocketbase(
+            pocketbase_url=pocketbase_url,
+            test_app=test_app,
+            redis_client=clean_redis,
+            username="super_admin_total_test",
+            password="SuperAdminTotal123!",
+        )
+
+        # Get total users (should include all institutions)
+        total_users_response = test_app.get("/api/v1/admin/total-users")
+        assert total_users_response.status_code == 200
+        total_users_data = total_users_response.json()
+
+        # Should see at least 2 + 3 + 1 (super admin) = 6 users
+        # May include service account or other system users
+        assert total_users_data["totalUsers"] >= 6
+
+
+@pytest.mark.integration
+class TestRegularUserIsolation:
+    """
+    Test that regular users CANNOT access data from other institutions.
+
+    These tests verify that non-admin users cannot view data belonging
+    to other institutions through user-facing endpoints.
+    """
+
+    def test_cannot_see_other_institutions_vacation_days(
+        self, test_app, pocketbase_admin_client
+    ):
+        """
+        Regular user in Institution A cannot see vacation days from Institution B.
+
+        This is a CRITICAL security test for user-facing vacation days endpoints.
+        """
+        # Create two institutions
+        inst_a = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A User Vac Test",
+            "INST_A_USER_VAC",
+            "MagicAUserVac",
+        )
+        inst_b = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B User Vac Test",
+            "INST_B_USER_VAC",
+            "MagicBUserVac",
+        )
+
+        # Create vacation day for institution B
+        vac_b_date = (datetime.now() + timedelta(days=250)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_b_date,
+                "type": "public_holiday",
+                "description": "New Year's Eve",
+                "created_by": "admin_b",
+                "institution_id": inst_b["id"],
+            },
+        )
+
+        # Create vacation day for institution A
+        vac_a_date = (datetime.now() + timedelta(days=260)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_a_date,
+                "type": "vacation",
+                "description": "Institution A Vacation",
+                "created_by": "admin_a",
+                "institution_id": inst_a["id"],
+            },
+        )
+
+        # Register regular user in Institution A
+        create_user(
+            test_app,
+            "user_a_vac",
+            "UserAVac123!",
+            "User A Vac",
+            "INST_A_USER_VAC",
+            "MagicAUserVac",
+            keep_logged_in=True,
+        )
+
+        # Get all vacation days as user A (should NOT include institution B's vacation day)
+        query_year = (datetime.now() + timedelta(days=260)).year
+        vacation_response = test_app.get(f"/api/v1/vacation-days?year={query_year}")
+        assert vacation_response.status_code == 200
+        vacation_days = vacation_response.json()
+
+        # Verify user A can only see their institution's vacation days
+        vacation_dates = [v["date"] for v in vacation_days]
+        assert any(
+            vd.startswith(vac_a_date) for vd in vacation_dates
+        )  # Institution A's
+        assert not any(
+            vd.startswith(vac_b_date) for vd in vacation_dates
+        )  # Institution B's
+
+    def test_cannot_see_other_institution_vacation_days_by_date(
+        self, test_app, pocketbase_admin_client
+    ):
+        """Regular user cannot query specific vacation days from other institutions."""
+        # Create two institutions
+        create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A User Vac Single Test",
+            "INST_A_USER_VAC_SINGLE",
+            "MagicAUserVacSingle",
+        )
+        inst_b = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B User Vac Single Test",
+            "INST_B_USER_VAC_SINGLE",
+            "MagicBUserVacSingle",
+        )
+
+        # Create vacation day for institution B
+        vac_b_single_date = (datetime.now() + timedelta(days=270)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_b_single_date,
+                "type": "public_holiday",
+                "description": "Institution B Holiday",
+                "created_by": "admin_b",
+                "institution_id": inst_b["id"],
+            },
+        )
+
+        # Register regular user in Institution A
+        create_user(
+            test_app,
+            "user_a_vac_single",
+            "UserAVacSingle123!",
+            "User A Vac Single",
+            "INST_A_USER_VAC_SINGLE",
+            "MagicAUserVacSingle",
+            keep_logged_in=True,
+        )
+
+        # Try to get Institution B's vacation day by date (should fail)
+        vacation_response = test_app.get(f"/api/v1/vacation-days/{vac_b_single_date}")
+        assert (
+            vacation_response.status_code == 404
+        )  # Not found (filtered by institution)
+
+    def test_vacation_days_range_endpoint_filters_by_institution(
+        self, test_app, pocketbase_admin_client
+    ):
+        """Vacation days range endpoint filters by institution for regular users."""
+        # Create two institutions
+        inst_a = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution A Range Test",
+            "INST_A_RANGE",
+            "MagicARange",
+        )
+        inst_b = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution B Range Test",
+            "INST_B_RANGE",
+            "MagicBRange",
+        )
+
+        # Create vacation days for both institutions in same date range
+        vac_range_a_date = (datetime.now() + timedelta(days=280)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_range_a_date,
+                "type": "vacation",
+                "description": "Institution A June Vacation",
+                "created_by": "admin_a",
+                "institution_id": inst_a["id"],
+            },
+        )
+
+        vac_range_b_date = (datetime.now() + timedelta(days=295)).strftime("%Y-%m-%d")
+        pocketbase_admin_client.post(
+            "/api/collections/vacation_days/records",
+            json={
+                "date": vac_range_b_date,
+                "type": "vacation",
+                "description": "Institution B June Vacation",
+                "created_by": "admin_b",
+                "institution_id": inst_b["id"],
+            },
+        )
+
+        # Register user in Institution A
+        create_user(
+            test_app,
+            "user_a_range",
+            "UserARange123!",
+            "User A Range",
+            "INST_A_RANGE",
+            "MagicARange",
+            keep_logged_in=True,
+        )
+
+        # Get vacation days in range (should only see Institution A's)
+        start_date = (datetime.now() + timedelta(days=275)).strftime("%Y-%m-%d")
+        end_date = (datetime.now() + timedelta(days=300)).strftime("%Y-%m-%d")
+        vacation_response = test_app.get(
+            f"/api/v1/vacation-days/range?start_date={start_date}&end_date={end_date}"
+        )
+        assert vacation_response.status_code == 200
+        vacation_days = vacation_response.json()
+
+        # Should only see Institution A's vacation day
+        assert len(vacation_days) == 1
+        assert vacation_days[0]["date"].startswith(vac_range_a_date)
+        assert vacation_days[0]["description"] == "Institution A June Vacation"
+
+
+@pytest.mark.integration
+class TestDataIntegrity:
+    """
+    Test that data is created with correct institution_id.
+
+    These tests verify that when users or admins create data,
+    it's automatically tagged with their institution_id for proper isolation.
+    """
+
+    def test_user_priority_save_includes_institution_id(
+        self, test_app, pocketbase_admin_client
+    ):
+        """When users save priorities, institution_id is included."""
+        # Create institution
+        inst = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution Priority Test",
+            "INST_PRIO",
+            "MagicPrio123",
+        )
+
+        # Register user
+        user_response = create_user(
+            test_app,
+            "user_prio",
+            "UserPrio123!",
+            "User Priority",
+            "INST_PRIO",
+            "MagicPrio123",
+            keep_logged_in=True,
+        )
+        user_id = user_response.json()["id"]
+
+        # Save priorities
+        test_month = (datetime.now() + timedelta(days=35)).strftime("%Y-%m")
+        save_response = test_app.put(
+            f"/api/v1/priorities/{test_month}",
+            json=[
+                {
+                    "weekNumber": 1,
+                    "monday": 1,
+                    "tuesday": 2,
+                    "wednesday": 3,
+                    "thursday": 1,
+                    "friday": 2,
+                }
+            ],
+        )
+        assert save_response.status_code == 200
+
+        # Verify priority has institution_id
+        priorities = pocketbase_admin_client.get(
+            "/api/collections/priorities/records",
+            params={"filter": f'userId="{user_id}" && month="{test_month}"'},
+        ).json()
+
+        assert len(priorities["items"]) == 1
+        assert priorities["items"][0]["institution_id"] == inst["id"]
+
+    def test_admin_vacation_day_create_includes_institution_id(
+        self, test_app, pocketbase_admin_client
+    ):
+        """Institution admin can create vacation days for their own institution."""
+        # Create institution
+        inst = create_institution_with_rsa_key(
+            pocketbase_admin_client,
+            "Institution Create Vac Test",
+            "INST_CREATE_VAC",
+            "MagicCreate_vac",
+        )
+
+        # Register and elevate admin
+        register_and_elevate_to_admin(
+            test_app=test_app,
+            pocketbase_admin_client=pocketbase_admin_client,
+            username="admin_create_vac",
+            password="AdminCreateVac!",
+            name="Admin Create Vac",
+            institution_short_code="INST_CREATE_VAC",
+            magic_word="MagicCreate_vac",
+        )
+
+        # Create vacation day (should succeed)
+        vacation_date = (datetime.now() + timedelta(days=200)).strftime("%Y-%m-%d")
+        create_response = test_app.post(
+            "/api/v1/admin/vacation-days",
+            json={
+                "date": vacation_date,
+                "type": "vacation",
+                "description": "Christmas Eve",
+            },
+        )
+        assert create_response.status_code == 200
+        created_vacation = create_response.json()
+
+        # Verify vacation day has correct institution_id
+        vac_check = pocketbase_admin_client.get(
+            f"/api/collections/vacation_days/records/{created_vacation['id']}"
+        )
+        assert vac_check.status_code == 200
+        vac_data = vac_check.json()
+        assert vac_data["institution_id"] == inst["id"]
+
+
+@pytest.mark.integration
+class TestInputValidation:
+    """
+    Test input validation and fixes for security audit findings.
+
+    These tests verify that malicious input is rejected before it can
+    cause SQL injection, filter injection, or other security issues.
+    """
 
     def test_manual_entry_delete_rejects_malicious_month(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that manual entry delete endpoint rejects malicious month parameter.
-        """
+        """Manual entry delete endpoint rejects malicious month parameter."""
         # Create institution and admin
         create_institution_with_rsa_key(
             pocketbase_admin_client,
@@ -1107,9 +1089,7 @@ class TestInputValidationAndSecurityFixes:
     def test_manual_entry_delete_rejects_malicious_identifier(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that manual entry delete endpoint rejects malicious identifier parameter.
-        """
+        """Manual entry delete endpoint rejects malicious identifier parameter."""
         # Create institution and admin
         create_institution_with_rsa_key(
             pocketbase_admin_client,
@@ -1138,9 +1118,7 @@ class TestInputValidationAndSecurityFixes:
     def test_manual_priority_create_rejects_malicious_identifier(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that manual priority create endpoint rejects malicious identifier.
-        """
+        """Manual priority create endpoint rejects malicious identifier."""
         # Create institution and admin
         create_institution_with_rsa_key(
             pocketbase_admin_client,
@@ -1183,9 +1161,7 @@ class TestInputValidationAndSecurityFixes:
     def test_get_user_for_admin_rejects_malicious_username(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that get user for admin endpoint rejects malicious username.
-        """
+        """Get user for admin endpoint rejects malicious username."""
         # Create institution and admin
         create_institution_with_rsa_key(
             pocketbase_admin_client,
@@ -1212,9 +1188,7 @@ class TestInputValidationAndSecurityFixes:
     def test_get_manual_entries_rejects_invalid_month(
         self, test_app, pocketbase_admin_client
     ):
-        """
-        Test that get manual entries endpoint validates month parameter.
-        """
+        """Get manual entries endpoint validates month parameter."""
         # Create institution and admin
         create_institution_with_rsa_key(
             pocketbase_admin_client,
@@ -1244,7 +1218,7 @@ class TestInputValidationAndSecurityFixes:
         self, test_app, pocketbase_admin_client
     ):
         """
-        Test that GET /api/v1/priorities/{month} rejects malicious month values.
+        GET /api/v1/priorities/{month} rejects malicious month values.
 
         Security Audit #4 Issue #1: Filter injection in priority GET endpoint.
         """
@@ -1284,7 +1258,7 @@ class TestInputValidationAndSecurityFixes:
         self, test_app, pocketbase_admin_client
     ):
         """
-        Test that DELETE /api/v1/priorities/{month} rejects malicious month values.
+        DELETE /api/v1/priorities/{month} rejects malicious month values.
 
         Security Audit #4 Issue #2: Filter injection in priority DELETE endpoint.
         """
@@ -1324,7 +1298,7 @@ class TestInputValidationAndSecurityFixes:
         self, test_app, pocketbase_admin_client
     ):
         """
-        Test that GET /api/v1/admin/vacation-days/{date} rejects malicious date values.
+        GET /api/v1/admin/vacation-days/{date} rejects malicious date values.
 
         Security Audit #4 Issue #3: Filter injection in admin vacation day GET endpoint.
         """
@@ -1358,7 +1332,7 @@ class TestInputValidationAndSecurityFixes:
         self, test_app, pocketbase_admin_client
     ):
         """
-        Test that PUT /api/v1/admin/vacation-days/{date} rejects malicious date values.
+        PUT /api/v1/admin/vacation-days/{date} rejects malicious date values.
 
         Security Audit #4 Issue #4: Filter injection in admin vacation day PUT endpoint.
         """
@@ -1395,7 +1369,7 @@ class TestInputValidationAndSecurityFixes:
         self, test_app, pocketbase_admin_client
     ):
         """
-        Test that DELETE /api/v1/admin/vacation-days/{date} rejects malicious date values.
+        DELETE /api/v1/admin/vacation-days/{date} rejects malicious date values.
 
         Security Audit #4 Issue #4: Filter injection in admin vacation day DELETE endpoint.
         """
@@ -1433,7 +1407,7 @@ class TestInputValidationAndSecurityFixes:
         self, test_app, pocketbase_admin_client, redis_client
     ):
         """
-        Test that changing password invalidates all old sessions.
+        Changing password invalidates all old sessions.
 
         Security Audit #4 Issue #5: Session invalidation bug in change password.
         This is the MOST CRITICAL fix - ensures old sessions are invalidated.
