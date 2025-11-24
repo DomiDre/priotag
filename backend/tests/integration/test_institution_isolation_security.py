@@ -18,35 +18,10 @@ import pytest
 
 from .conftest import (
     create_institution_with_rsa_key,
+    create_user,
     login_with_pocketbase,
     register_and_elevate_to_admin,
 )
-
-
-def create_user(
-    test_app,
-    identity,
-    password,
-    name,
-    institution_code,
-    magic_word,
-    keep_logged_in=False,
-):
-    """Helper to create a user and return the response."""
-    response = test_app.post(
-        "/api/v1/auth/register-qr",
-        json={
-            "identity": identity,
-            "password": password,
-            "passwordConfirm": password,
-            "name": name,
-            "magic_word": magic_word,
-            "institution_short_code": institution_code,
-            "keep_logged_in": keep_logged_in,
-        },
-    )
-    assert response.status_code == 200
-    return response
 
 
 @pytest.mark.integration

@@ -3,11 +3,19 @@ Integration tests for multi-institution functionality.
 
 These tests verify the end-to-end flow of multi-institution features
 using real PocketBase and Redis containers.
+
+Tests are organized by feature area:
+- TestMultiInstitutionSetup: Basic institution CRUD operations
+- TestPublicInstitutionEndpoints: Public API endpoints for institutions
+- TestMagicWordVerification: Magic word validation and registration tokens
+- TestUserRegistrationWithInstitutions: User registration flows and isolation
 """
+
+import json
 
 import pytest
 
-from .conftest import create_institution_with_rsa_key
+from .conftest import create_institution_with_rsa_key, create_user
 
 
 @pytest.mark.integration
@@ -128,8 +136,6 @@ class TestMagicWordVerification:
         assert "token" in data
 
         # Verify token is stored in Redis with institution_id
-        import json
-
         token = data["token"]
         token_data_str = clean_redis.get(f"reg_token:{token}")
         assert token_data_str is not None
@@ -198,20 +204,16 @@ class TestUserRegistrationWithInstitutions:
         )
 
         # Register user via API
-        response = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "testuser",
-                "password": "TestPass123!",
-                "passwordConfirm": "TestPass123!",
-                "name": "Test User",
-                "magic_word": "RegMagic123",
-                "institution_short_code": "REG_TEST",
-                "keep_logged_in": False,
-            },
+        response = create_user(
+            test_app,
+            "testuser",
+            "TestPass123!",
+            "Test User",
+            "REG_TEST",
+            "RegMagic123",
+            keep_logged_in=False,
         )
 
-        assert response.status_code == 200
         user_data = response.json()
 
         # Verify user was created successfully
@@ -241,37 +243,25 @@ class TestUserRegistrationWithInstitutions:
         )
 
         # Register user in Institution A
-        reg_a = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "userA",
-                "password": "PassA123!",
-                "passwordConfirm": "PassA123!",
-                "name": "User A",
-                "magic_word": "MagicA",
-                "institution_short_code": "INST_A",
-                "keep_logged_in": False,
-            },
-        )
-        assert reg_a.status_code == 200, (
-            f"Registration A failed: {reg_a.status_code} - {reg_a.text}"
+        create_user(
+            test_app,
+            "userA",
+            "PassA123!",
+            "User A",
+            "INST_A",
+            "MagicA",
+            keep_logged_in=False,
         )
 
         # Register user in Institution B
-        reg_b = test_app.post(
-            "/api/v1/auth/register-qr",
-            json={
-                "identity": "userB",
-                "password": "PassB123!",
-                "passwordConfirm": "PassB123!",
-                "name": "User B",
-                "magic_word": "MagicB",
-                "institution_short_code": "INST_B",
-                "keep_logged_in": False,
-            },
-        )
-        assert reg_b.status_code == 200, (
-            f"Registration B failed: {reg_b.status_code} - {reg_b.text}"
+        create_user(
+            test_app,
+            "userB",
+            "PassB123!",
+            "User B",
+            "INST_B",
+            "MagicB",
+            keep_logged_in=False,
         )
 
         # Verify users exist in different institutions

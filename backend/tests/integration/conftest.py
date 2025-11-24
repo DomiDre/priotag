@@ -81,6 +81,50 @@ def create_institution_with_rsa_key(pocketbase_client, name, short_code, magic_w
     return response.json()
 
 
+def create_user(
+    test_app,
+    identity,
+    password,
+    name,
+    institution_code,
+    magic_word,
+    keep_logged_in=False,
+):
+    """Helper to create a user via register-qr endpoint.
+
+    Args:
+        test_app: FastAPI TestClient
+        identity: Username/email for the user
+        password: Password for the user
+        name: Display name for the user
+        institution_code: Institution short code
+        magic_word: Registration magic word for the institution
+        keep_logged_in: Whether to keep the user logged in (default: False)
+
+    Returns:
+        Response: The registration response from the API
+
+    Raises:
+        AssertionError: If registration fails
+    """
+    response = test_app.post(
+        "/api/v1/auth/register-qr",
+        json={
+            "identity": identity,
+            "password": password,
+            "passwordConfirm": password,
+            "name": name,
+            "magic_word": magic_word,
+            "institution_short_code": institution_code,
+            "keep_logged_in": keep_logged_in,
+        },
+    )
+    assert response.status_code == 200, (
+        f"Failed to register user '{identity}': {response.status_code} - {response.text}"
+    )
+    return response
+
+
 def login_with_pocketbase(
     pocketbase_url: str,
     test_app: TestClient,
