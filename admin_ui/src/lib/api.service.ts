@@ -200,6 +200,54 @@ export class ApiService {
 		});
 	}
 
+	// Super Admin - User Management
+	async listInstitutionUsers(institutionId: string): Promise<
+		Array<{
+			id: string;
+			username: string;
+			email: string;
+			role: string;
+			institution_id: string;
+			created: string;
+			updated: string;
+			lastSeen: string;
+		}>
+	> {
+		return this.requestJson(`/admin/super/institutions/${institutionId}/users`, {
+			method: 'GET'
+		});
+	}
+
+	async promoteUserToInstitutionAdmin(userId: string): Promise<{
+		success: boolean;
+		message: string;
+		user: {
+			id: string;
+			username: string;
+			role: string;
+			institution_id: string;
+		};
+	}> {
+		return this.requestJson(`/admin/super/users/${userId}/promote`, {
+			method: 'PATCH'
+		});
+	}
+
+	async demoteUserFromInstitutionAdmin(userId: string): Promise<{
+		success: boolean;
+		message: string;
+		user: {
+			id: string;
+			username: string;
+			role: string;
+			institution_id: string;
+		};
+	}> {
+		return this.requestJson(`/admin/super/users/${userId}/demote`, {
+			method: 'PATCH'
+		});
+	}
+
 	async getTotalUsers() {
 		return this.requestJson('/admin/total-users', {
 			method: 'GET'
