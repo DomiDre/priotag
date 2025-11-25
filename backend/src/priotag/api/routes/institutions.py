@@ -3,6 +3,7 @@
 import json
 import logging
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
 from priotag.models.auth import SessionInfo
@@ -13,6 +14,7 @@ from priotag.models.institution import (
     UpdateMagicWordRequest,
 )
 from priotag.services.institution import InstitutionService
+from priotag.services.pocketbase_service import POCKETBASE_URL
 from priotag.utils import get_current_token, require_super_admin, verify_token
 
 router = APIRouter()
@@ -302,3 +304,212 @@ async def get_qr_registration_data(
         raise HTTPException(
             status_code=500, detail="Error fetching QR registration data"
         ) from e
+
+
+# ============================================================================
+# USER MANAGEMENT ENDPOINTS (SUPER ADMIN)
+# ============================================================================
+
+
+@router.get("/admin/super/institutions/{institution_id}/users")
+async def list_institution_users(
+    institution_id: str,
+    session: SessionInfo = Depends(require_super_admin),
+    token: str = Depends(get_current_token),
+):
+    """
+    List all users belonging to a specific institution.
+
+    This endpoint is for super admins only.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            # Fetch users for this institution
+            response = await client.get(
+                f"{POCKETBASE_URL}/api/collections/users/records",
+                params={
+                    "filter": f"institution_id='{institution_id}'",
+                    "perPage": 500,
+                    "sort": "username",
+                },
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=500, detail="Error fetching users for institution"
+                )
+
+            users_data = response.json().get("items", [])
+
+            # Return user info (sanitized - no encrypted fields)
+            return [
+                {
+                    "id": user["id"],
+                    "username": user["username"],
+                    "email": user.get("email", ""),
+                    "role": user.get("role", "user"),
+                    "institution_id": user.get("institution_id"),
+                    "created": user.get("created"),
+                    "updated": user.get("updated"),
+                    "lastSeen": user.get("lastSeen"),
+                }
+                for user in users_data
+            ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing users for institution {institution_id}: {e}")
+        raise HTTPException(
+            status_code=500, detail="Error listing users for institution"
+        ) from e
+
+
+@router.patch("/admin/super/users/{user_id}/promote")
+async def promote_user_to_institution_admin(
+    user_id: str,
+    session: SessionInfo = Depends(require_super_admin),
+    token: str = Depends(get_current_token),
+):
+    """
+    Promote a user to institution_admin role.
+
+    This endpoint is for super admins only.
+    The user must already be associated with an institution.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            # First, fetch the user to verify they exist and have an institution
+            user_response = await client.get(
+                f"{POCKETBASE_URL}/api/collections/users/records/{user_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+            if user_response.status_code == 404:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            if user_response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Error fetching user")
+
+            user_data = user_response.json()
+
+            # Verify user has an institution
+            if not user_data.get("institution_id"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="User must be associated with an institution to be promoted to institution_admin",
+                )
+
+            # Check if already an admin
+            current_role = user_data.get("role", "user")
+            if current_role in ["institution_admin", "super_admin"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"User is already an admin (current role: {current_role})",
+                )
+
+            # Update user role to institution_admin
+            update_response = await client.patch(
+                f"{POCKETBASE_URL}/api/collections/users/records/{user_id}",
+                json={"role": "institution_admin"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+            if update_response.status_code != 200:
+                error_data = update_response.json()
+                raise HTTPException(
+                    status_code=update_response.status_code,
+                    detail=error_data.get("message", "Error promoting user"),
+                )
+
+            updated_user = update_response.json()
+
+            return {
+                "success": True,
+                "message": f"User '{updated_user['username']}' promoted to institution_admin",
+                "user": {
+                    "id": updated_user["id"],
+                    "username": updated_user["username"],
+                    "role": updated_user["role"],
+                    "institution_id": updated_user["institution_id"],
+                },
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error promoting user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error promoting user") from e
+
+
+@router.patch("/admin/super/users/{user_id}/demote")
+async def demote_user_from_institution_admin(
+    user_id: str,
+    session: SessionInfo = Depends(require_super_admin),
+    token: str = Depends(get_current_token),
+):
+    """
+    Demote an institution_admin back to regular user role.
+
+    This endpoint is for super admins only.
+    Cannot demote super_admins.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            # First, fetch the user to verify they exist
+            user_response = await client.get(
+                f"{POCKETBASE_URL}/api/collections/users/records/{user_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+            if user_response.status_code == 404:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            if user_response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Error fetching user")
+
+            user_data = user_response.json()
+            current_role = user_data.get("role", "user")
+
+            # Verify user is an institution_admin
+            if current_role == "super_admin":
+                raise HTTPException(
+                    status_code=400, detail="Cannot demote super_admin users"
+                )
+
+            if current_role != "institution_admin":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"User is not an institution_admin (current role: {current_role})",
+                )
+
+            # Update user role to regular user
+            update_response = await client.patch(
+                f"{POCKETBASE_URL}/api/collections/users/records/{user_id}",
+                json={"role": "user"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+            if update_response.status_code != 200:
+                error_data = update_response.json()
+                raise HTTPException(
+                    status_code=update_response.status_code,
+                    detail=error_data.get("message", "Error demoting user"),
+                )
+
+            updated_user = update_response.json()
+
+            return {
+                "success": True,
+                "message": f"User '{updated_user['username']}' demoted to regular user",
+                "user": {
+                    "id": updated_user["id"],
+                    "username": updated_user["username"],
+                    "role": updated_user["role"],
+                    "institution_id": updated_user["institution_id"],
+                },
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error demoting user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error demoting user") from e

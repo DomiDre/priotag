@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { scale } from 'svelte/transition';
+	import { goto } from '$app/navigation';
 	import Refresh from 'virtual:icons/mdi/refresh';
+	import Shield from 'virtual:icons/mdi/shield-account';
 	import * as XLSX from 'xlsx';
 	import { apiService } from '$lib/api.service';
 	import { cryptoService } from '$lib/crypto.service';
 	import { webAuthnCryptoService } from '$lib/webauthn-crypto.service';
+	import { currentUser } from '$lib/auth.stores';
 	import DecryptedDataModal from '$lib/components/DecryptedDataModal.svelte';
 	import StatsCards from '$lib/components/StatsCards.svelte';
 	import AuthenticationPanel from '$lib/components/AuthenticationPanel.svelte';
@@ -24,6 +27,9 @@
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { WeekPriority } from '$lib/priorities.types';
 	import type { VacationDayAdmin, VacationDayType } from '$lib/vacation-days.types';
+
+	// Derived user info
+	let user = $derived.by(() => $currentUser);
 	import { formatMonthForAPI, getMonthOptions } from '$lib/dateHelpers.utils';
 
 	// Daten beim Laden abrufen
@@ -965,6 +971,18 @@
 					</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+					{#if user.isSuperAdmin}
+						<button
+							type="button"
+							onclick={() => goto('/superadmin')}
+							class="flex items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+							title="Super Admin Dashboard"
+						>
+							<Shield class="h-4 w-4" />
+							<span>Super Admin</span>
+						</button>
+					{/if}
+
 					<select
 						bind:value={selectedMonth}
 						class="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500 sm:w-auto dark:border-gray-600 dark:bg-gray-700 dark:text-white"
