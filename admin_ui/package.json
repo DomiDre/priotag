@@ -47,7 +47,7 @@
 		"@iconify/json": "^2.2.399",
 		"docx": "^9.5.1",
 		"file-saver": "^2.0.5",
-		"node-forge": "^1.3.1",
+		"node-forge": "^1.3.2",
 		"qrcode": "^1.5.4",
 		"unplugin-icons": "^22.5.0",
 		"xlsx": "^0.18.5"
