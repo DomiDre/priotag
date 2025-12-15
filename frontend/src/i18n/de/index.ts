@@ -35,6 +35,84 @@ const de = {
 		subtitle: 'Prio Tage für den Monat festlegen'
 	},
 
+	// Landing page
+	landing: {
+		hero: {
+			title: 'Datenschutzfreundliche Kinderbetreuungs-Prioritätenverwaltung',
+			subtitle:
+				'Verwalten Sie Kinderbetreuungsprioritäten sicher mit vollständiger Verschlüsselung und DSGVO-Konformität.',
+			loginButton: 'Anmelden',
+			registerButton: 'Registrieren',
+			learnMore: 'Mehr erfahren'
+		},
+		features: {
+			title: 'Warum PrioTag?',
+			subtitle: 'Entwickelt mit Fokus auf Datenschutz und Benutzerfreundlichkeit',
+			privacy: {
+				title: 'Datenschutz zuerst',
+				description:
+					'Serverseitige AES-256-GCM-Verschlüsselung stellt sicher, dass Ihre Daten privat bleiben. Nur Sie können Ihre Informationen entschlüsseln.'
+			},
+			gdpr: {
+				title: 'DSGVO-konform',
+				description:
+					'Vollständige Einhaltung der Datenschutz-Grundverordnung mit Datenexport und Löschrechten.'
+			},
+			easyToUse: {
+				title: 'Einfach zu bedienen',
+				description:
+					'Intuitive Benutzeroberfläche für Desktop und Mobilgeräte. Setzen Sie wöchentliche Prioritäten mit wenigen Klicks.'
+			},
+			multiInstitution: {
+				title: 'Multi-Institutionen-Unterstützung',
+				description:
+					'Unterstützt mehrere Kinderbetreuungseinrichtungen mit separater Verwaltung und Datenisolierung.'
+			},
+			secure: {
+				title: 'Sicher & Zuverlässig',
+				description:
+					'Moderne Sicherheitspraktiken mit verschlüsselter Speicherung und sicheren Authentifizierungsmethoden.'
+			},
+			transparent: {
+				title: 'Open Source',
+				description:
+					'Vollständig Open Source auf GitHub. Überprüfen Sie den Code und tragen Sie zur Entwicklung bei.'
+			}
+		},
+		howItWorks: {
+			title: 'Wie es funktioniert',
+			subtitle: 'Beginnen Sie in drei einfachen Schritten',
+			step1: {
+				title: 'Registrieren',
+				description:
+					'Erhalten Sie einen Registrierungslink oder QR-Code von Ihrer Kinderbetreuungseinrichtung.'
+			},
+			step2: {
+				title: 'Prioritäten setzen',
+				description:
+					'Wählen Sie Ihre wöchentlichen Kinderbetreuungsprioritäten für jeden Wochentag (Montag-Freitag).'
+			},
+			step3: {
+				title: 'Entspannen',
+				description:
+					'Ihre Präferenzen werden sicher gespeichert und verschlüsselt. Administratoren können verschlüsselte Berichte generieren.'
+			}
+		},
+		cta: {
+			title: 'Bereit anzufangen?',
+			subtitle:
+				'Schließen Sie sich Eltern an, die ihre Kinderbetreuungsprioritäten bereits sicher verwalten.',
+			loginButton: 'Anmelden',
+			registerInfo: 'Noch kein Konto? Erfahren Sie, wie Sie sich registrieren →'
+		},
+		footer: {
+			description:
+				'PrioTag ist eine Open-Source-Lösung zur Verwaltung von Kinderbetreuungsprioritäten mit Fokus auf Datenschutz.',
+			links: 'Links',
+			legal: 'Rechtliches'
+		}
+	},
+
 	// Authentication
 	auth: {
 		login: {
