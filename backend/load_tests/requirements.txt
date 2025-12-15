@@ -1,0 +1,9 @@
+# Load Testing Dependencies for Priotag Backend
+#
+# Install with: pip install -r requirements.txt
+
+# Locust - Modern load testing framework
+locust>=2.20.0
+
+# Additional utilities
+requests>=2.31.0

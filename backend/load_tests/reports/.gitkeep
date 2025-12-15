@@ -1,0 +1,9 @@
+# This directory contains load testing reports
+#
+# Reports are generated automatically when running load tests.
+# They include:
+# - HTML reports with charts and statistics
+# - CSV files with detailed metrics
+# - Exception and failure logs
+#
+# Note: Report files are gitignored and should not be committed to version control.
