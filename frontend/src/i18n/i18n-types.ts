@@ -139,9 +139,17 @@ type RootTranslation = {
 			 */
 			loginButton: string
 			/**
+			 * A​u​s​l​o​g​g​e​n
+			 */
+			logoutButton: string
+			/**
 			 * R​e​g​i​s​t​r​i​e​r​e​n
 			 */
 			registerButton: string
+			/**
+			 * P​r​i​o​r​i​t​ä​t​e​n​ ​s​e​t​z​e​n
+			 */
+			prioritiesButton: string
 			/**
 			 * M​e​h​r​ ​e​r​f​a​h​r​e​n
 			 */
@@ -1554,9 +1562,17 @@ export type TranslationFunctions = {
 			 */
 			loginButton: () => LocalizedString
 			/**
+			 * Ausloggen
+			 */
+			logoutButton: () => LocalizedString
+			/**
 			 * Registrieren
 			 */
 			registerButton: () => LocalizedString
+			/**
+			 * Prioritäten setzen
+			 */
+			prioritiesButton: () => LocalizedString
 			/**
 			 * Mehr erfahren
 			 */

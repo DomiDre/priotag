@@ -41,7 +41,9 @@ const en = {
 			title: 'Childcare Priority Management',
 			subtitle: 'Manage childcare priorities securely with encryption and GDPR compliance.',
 			loginButton: 'Log in',
+			logoutButton: 'Log out',
 			registerButton: 'Register',
+			prioritiesButton: 'Set Priorities',
 			learnMore: 'Learn more'
 		},
 		features: {
