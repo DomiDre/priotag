@@ -226,21 +226,6 @@
 		}
 	}
 
-	function handleDownloadPrivateKey() {
-		if (!generatedPrivateKey || !newInstitution.short_code) return;
-
-		// If encryption is enabled, show passphrase modal
-		if (encryptPrivateKey) {
-			showPassphraseModal = true;
-			passphraseError = '';
-			return;
-		}
-
-		// Download unencrypted key
-		downloadTextFile(generatedPrivateKey, `${newInstitution.short_code}_private_key.pem`);
-		showSuccessMessage('Private key downloaded successfully');
-	}
-
 	async function confirmPassphraseAndDownload() {
 		if (!generatedPrivateKey || !newInstitution.short_code) return;
 
@@ -724,18 +709,6 @@
 									</div>
 								</div>
 							</div>
-
-							<button
-								type="button"
-								onclick={handleDownloadPrivateKey}
-								class="flex w-full items-center justify-center gap-2 rounded-lg border border-purple-600 bg-white px-4 py-2 text-sm font-medium text-purple-600 transition-all hover:bg-purple-50 dark:border-purple-500 dark:bg-gray-800 dark:text-purple-400 dark:hover:bg-gray-700"
-							>
-								<Download class="h-4 w-4" />
-								{#if encryptPrivateKey}
-									<Lock class="h-3 w-3" />
-								{/if}
-								Download {encryptPrivateKey ? 'Encrypted ' : ''}Private Key
-							</button>
 
 							<p class="text-xs text-orange-600 dark:text-orange-400">
 								⚠️ Make sure to save the private key! It will be automatically downloaded when you
