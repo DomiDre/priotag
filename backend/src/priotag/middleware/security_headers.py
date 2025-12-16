@@ -307,12 +307,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
             # Permissions Policy (restrictive by default)
             response.headers["Permissions-Policy"] = (
-                "accelerometer=(), ambient-light-sensor=(), autoplay=(), "
-                "battery=(), camera=(), display-capture=(), document-domain=(), "
+                "accelerometer=(), autoplay=(), "
+                "camera=(), display-capture=(), "
                 "encrypted-media=(), fullscreen=(self), "
                 "geolocation=(), gyroscope=(), microphone=(), "
                 "payment=(), picture-in-picture=(), "
-                "screen-wake-lock=(), usb=(), web-share=()"
+                "screen-wake-lock=(), usb=()"
             )
 
             # Other Security Headers
