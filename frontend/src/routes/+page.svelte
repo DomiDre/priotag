@@ -10,8 +10,7 @@
 		if ($isAuthenticated) {
 			goToPriorities();
 		}
-
-	})
+	});
 
 	function goToLogin() {
 		goto('/login');
