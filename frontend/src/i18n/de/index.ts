@@ -42,7 +42,9 @@ const de = {
 			subtitle:
 				'Verwalten Sie Kinderbetreuungsprioritäten sicher mit Verschlüsselung und DSGVO-Konformität.',
 			loginButton: 'Anmelden',
+			logoutButton: 'Ausloggen',
 			registerButton: 'Registrieren',
+			prioritiesButton: 'Prioritäten setzen',
 			learnMore: 'Mehr erfahren'
 		},
 		features: {
