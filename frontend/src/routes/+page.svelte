@@ -7,9 +7,9 @@
 
 	onMount(() => {
 		// Redirect authenticated users to priorities
-		if ($isAuthenticated) {
-			goto('/priorities');
-		}
+		// if ($isAuthenticated) {
+		// 	goto('/priorities');
+		// }
 	});
 
 	function goToLogin() {

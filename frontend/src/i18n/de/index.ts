@@ -38,9 +38,9 @@ const de = {
 	// Landing page
 	landing: {
 		hero: {
-			title: 'Datenschutzfreundliche Kinderbetreuungs-Prioritätenverwaltung',
+			title: 'Kinderbetreuungs-Prioritätenverwaltung',
 			subtitle:
-				'Verwalten Sie Kinderbetreuungsprioritäten sicher mit vollständiger Verschlüsselung und DSGVO-Konformität.',
+				'Verwalten Sie Kinderbetreuungsprioritäten sicher mit Verschlüsselung und DSGVO-Konformität.',
 			loginButton: 'Anmelden',
 			registerButton: 'Registrieren',
 			learnMore: 'Mehr erfahren'
@@ -51,12 +51,12 @@ const de = {
 			privacy: {
 				title: 'Datenschutz zuerst',
 				description:
-					'Serverseitige AES-256-GCM-Verschlüsselung stellt sicher, dass Ihre Daten privat bleiben. Nur Sie können Ihre Informationen entschlüsseln.'
+					'Serverseitige AES-256-GCM-Verschlüsselung stellt sicher, dass Ihre Daten privat bleiben. Nur Sie und die Administration ihres Kindergarten können Ihre Informationen entschlüsseln.'
 			},
 			gdpr: {
 				title: 'DSGVO-konform',
 				description:
-					'Vollständige Einhaltung der Datenschutz-Grundverordnung mit Datenexport und Löschrechten.'
+					'Vollständige Einhaltung der Datenschutz-Grundverordnung u.A. durch Minimierung der erfassten Daten, Absicherung der Daten nach Stand der Technik, Datenexport und Löschrechten.'
 			},
 			easyToUse: {
 				title: 'Einfach zu bedienen',
@@ -116,7 +116,7 @@ const de = {
 	// Authentication
 	auth: {
 		login: {
-			title: 'Anmelden',
+			title: 'Login',
 			username: 'Username',
 			password: 'Passwort',
 			keepLoggedIn: 'Angemeldet bleiben',

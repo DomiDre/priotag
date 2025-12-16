@@ -1,0 +1,28 @@
+# Lint frontend code  
+lint:
+    docker compose -f ../docker-compose.dev.yml run --rm frontend npm run lint
+
+# Build frontend static files in development
+build-dev:
+    docker compose -f ../docker-compose.dev.yml exec frontend npm run build
+    @echo "Frontend built! Static files are now available."
+
+# Execute command in frontend container
+exec command:
+    docker compose -f ../docker-compose.dev.yml exec frontend {{command}}
+
+# Format frontend code
+format:
+    docker compose -f ../docker-compose.dev.yml run --rm frontend npm run format
+
+# Open shell in frontend container
+shell:
+    docker compose run --rm -it frontend /bin/sh
+
+# Open shell in frontend container (development)
+shell-dev:
+    docker compose -f ../docker-compose.dev.yml run --rm -it frontend /bin/sh
+
+# Run frontend tests
+test:
+    docker compose -f ../docker-compose.dev.yml run --rm frontend npm test

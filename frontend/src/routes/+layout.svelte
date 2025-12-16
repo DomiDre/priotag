@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/auth.store';
-	import ReAuthModal from '$lib/components/ReAuthModal.svelte';
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { initI18n } from '$i18n/i18n-setup';
@@ -11,7 +10,6 @@
 
 	let { children } = $props();
 
-	let showReAuthModal = $state(false);
 	let isInitializing = $state(true);
 	let isVerifying = $state(false);
 
@@ -25,32 +23,30 @@
 
 		// Prevent concurrent auth checks
 		if (isVerifying) return;
+		const currentPath = window.location.pathname;
+		const isPublicRoute = publicRoutes.includes(currentPath);
+		const isRootPath = currentPath === '/';
+
+		if (isRootPath) {
+			isInitializing = false;
+			return;
+		}
+
 		isVerifying = true;
 
 		try {
 			// Verify session with server (checks httpOnly cookies)
 			const isValid = await authStore.verifyAuth();
-
-			const currentPath = window.location.pathname;
-			const isPublicRoute = publicRoutes.includes(currentPath);
-			const isRootPath = currentPath === '/';
-
-			if (isRootPath) {
-				// Root path - redirect based on auth
-				const destination = isValid ? '/priorities' : '/login';
-				await goto(destination, { replaceState: true });
-			} else if (!isValid && !isPublicRoute) {
+			if (!isValid && !isPublicRoute) {
 				// Not authenticated and trying to access protected route
 				await goto('/login', { replaceState: true });
 			} else if (isValid && currentPath === '/login') {
 				// Already authenticated on login page
 				await goto('/priorities', { replaceState: true });
 			}
-			// else: stay on current page (valid state)
 		} catch (error) {
-			console.error('Auth initialization error:', error);
 			// On error, redirect to login for safety
-			if (window.location.pathname !== '/login') {
+			if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
 				await goto('/login', { replaceState: true });
 			}
 		} finally {
@@ -59,9 +55,6 @@
 		}
 	});
 
-	function handleReAuthSuccess() {
-		showReAuthModal = false;
-	}
 </script>
 
 <svelte:head>
@@ -80,6 +73,3 @@
 {:else}
 	{@render children?.()}
 {/if}
-
-<!-- Re-Authentication Modal -->
-<ReAuthModal isOpen={showReAuthModal} onClose={handleReAuthSuccess} />

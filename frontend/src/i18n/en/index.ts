@@ -38,9 +38,9 @@ const en = {
 	// Landing page
 	landing: {
 		hero: {
-			title: 'Privacy-First Childcare Priority Management',
+			title: 'Childcare Priority Management',
 			subtitle:
-				'Manage childcare priorities securely with complete encryption and GDPR compliance.',
+				'Manage childcare priorities securely with encryption and GDPR compliance.',
 			loginButton: 'Log in',
 			registerButton: 'Register',
 			learnMore: 'Learn more'
@@ -51,12 +51,12 @@ const en = {
 			privacy: {
 				title: 'Privacy First',
 				description:
-					'Server-side AES-256-GCM encryption ensures your data stays private. Only you can decrypt your information.'
+					'Server-side AES-256-GCM encryption ensures your data stays private. Only you and the administration of your childcare facility can decrypt your information.'
 			},
 			gdpr: {
 				title: 'GDPR Compliant',
 				description:
-					'Full compliance with General Data Protection Regulation including data export and deletion rights.'
+					'Full compliance with General Data Protection Regulation including minimization of the collected data, securing the data following the state of the art, as well as data export and deletion rights.'
 			},
 			easyToUse: {
 				title: 'Easy to Use',

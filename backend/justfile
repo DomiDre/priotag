@@ -1,0 +1,29 @@
+
+# Open shell in backend container
+shell:
+    docker compose run --rm -it backend /bin/bash
+
+# Open shell in backend container (development)
+shell-dev:
+    docker compose -f ../docker-compose.dev.yml run --rm -it backend /bin/bash
+
+# Run backend tests (not working currently, use test-locally or github action)
+test:
+    docker compose -f ../docker-compose.dev.yml run --rm backend uv run pytest
+
+test-locally *args:
+    uv run pytest {{ args }}
+
+# Format backend code
+format:
+    docker compose -f ../docker-compose.dev.yml run --rm backend uv run ruff format .
+    docker compose -f ../docker-compose.dev.yml run --rm backend uv run ruff check --fix .
+
+# Lint backend code
+lint:
+    docker compose -f ../docker-compose.dev.yml run --rm backend uv run ruff check .
+    docker compose -f ../docker-compose.dev.yml run --rm backend uv run mypy .
+
+# Execute command in backend container
+exec command:
+    docker compose -f ../docker-compose.dev.yml exec backend {{command}}
