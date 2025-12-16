@@ -44,7 +44,7 @@
 				// Already authenticated on login page
 				await goto('/priorities', { replaceState: true });
 			}
-		} catch (error) {
+		} catch {
 			// On error, redirect to login for safety
 			if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
 				await goto('/login', { replaceState: true });
