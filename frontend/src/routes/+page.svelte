@@ -4,6 +4,14 @@
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import { LL } from '$i18n/i18n-svelte';
 	import { apiService } from '$lib/api.service';
+	import { onMount } from 'svelte';
+
+	onMount(() => {
+		if ($isAuthenticated) {
+			goToPriorities();
+		}
+
+	})
 
 	function goToLogin() {
 		goto('/login');
