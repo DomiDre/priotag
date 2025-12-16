@@ -26,3 +26,7 @@ shell-dev:
 # Run frontend tests
 test:
     docker compose -f ../docker-compose.dev.yml run --rm frontend npm test
+
+# Generate i18n types
+i18n-types:
+    npx typesafe-i18n
