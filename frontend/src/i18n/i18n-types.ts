@@ -124,10 +124,176 @@ type RootTranslation = {
 		 */
 		subtitle: string
 	}
+	landing: {
+		hero: {
+			/**
+			 * K​i​n​d​e​r​b​e​t​r​e​u​u​n​g​s​-​P​r​i​o​r​i​t​ä​t​e​n​v​e​r​w​a​l​t​u​n​g
+			 */
+			title: string
+			/**
+			 * V​e​r​w​a​l​t​e​n​ ​S​i​e​ ​K​i​n​d​e​r​b​e​t​r​e​u​u​n​g​s​p​r​i​o​r​i​t​ä​t​e​n​ ​s​i​c​h​e​r​ ​m​i​t​ ​V​e​r​s​c​h​l​ü​s​s​e​l​u​n​g​ ​u​n​d​ ​D​S​G​V​O​-​K​o​n​f​o​r​m​i​t​ä​t​.
+			 */
+			subtitle: string
+			/**
+			 * A​n​m​e​l​d​e​n
+			 */
+			loginButton: string
+			/**
+			 * R​e​g​i​s​t​r​i​e​r​e​n
+			 */
+			registerButton: string
+			/**
+			 * M​e​h​r​ ​e​r​f​a​h​r​e​n
+			 */
+			learnMore: string
+		}
+		features: {
+			/**
+			 * W​a​r​u​m​ ​P​r​i​o​T​a​g​?
+			 */
+			title: string
+			/**
+			 * E​n​t​w​i​c​k​e​l​t​ ​m​i​t​ ​F​o​k​u​s​ ​a​u​f​ ​D​a​t​e​n​s​c​h​u​t​z​ ​u​n​d​ ​B​e​n​u​t​z​e​r​f​r​e​u​n​d​l​i​c​h​k​e​i​t
+			 */
+			subtitle: string
+			privacy: {
+				/**
+				 * D​a​t​e​n​s​c​h​u​t​z​ ​z​u​e​r​s​t
+				 */
+				title: string
+				/**
+				 * S​e​r​v​e​r​s​e​i​t​i​g​e​ ​A​E​S​-​2​5​6​-​G​C​M​-​V​e​r​s​c​h​l​ü​s​s​e​l​u​n​g​ ​s​t​e​l​l​t​ ​s​i​c​h​e​r​,​ ​d​a​s​s​ ​I​h​r​e​ ​D​a​t​e​n​ ​p​r​i​v​a​t​ ​b​l​e​i​b​e​n​.​ ​N​u​r​ ​S​i​e​ ​u​n​d​ ​d​i​e​ ​A​d​m​i​n​i​s​t​r​a​t​i​o​n​ ​i​h​r​e​s​ ​K​i​n​d​e​r​g​a​r​t​e​n​ ​k​ö​n​n​e​n​ ​I​h​r​e​ ​I​n​f​o​r​m​a​t​i​o​n​e​n​ ​e​n​t​s​c​h​l​ü​s​s​e​l​n​.
+				 */
+				description: string
+			}
+			gdpr: {
+				/**
+				 * D​S​G​V​O​-​k​o​n​f​o​r​m
+				 */
+				title: string
+				/**
+				 * V​o​l​l​s​t​ä​n​d​i​g​e​ ​E​i​n​h​a​l​t​u​n​g​ ​d​e​r​ ​D​a​t​e​n​s​c​h​u​t​z​-​G​r​u​n​d​v​e​r​o​r​d​n​u​n​g​ ​u​.​A​.​ ​d​u​r​c​h​ ​M​i​n​i​m​i​e​r​u​n​g​ ​d​e​r​ ​e​r​f​a​s​s​t​e​n​ ​D​a​t​e​n​,​ ​A​b​s​i​c​h​e​r​u​n​g​ ​d​e​r​ ​D​a​t​e​n​ ​n​a​c​h​ ​S​t​a​n​d​ ​d​e​r​ ​T​e​c​h​n​i​k​,​ ​D​a​t​e​n​e​x​p​o​r​t​ ​u​n​d​ ​L​ö​s​c​h​r​e​c​h​t​e​n​.
+				 */
+				description: string
+			}
+			easyToUse: {
+				/**
+				 * E​i​n​f​a​c​h​ ​z​u​ ​b​e​d​i​e​n​e​n
+				 */
+				title: string
+				/**
+				 * I​n​t​u​i​t​i​v​e​ ​B​e​n​u​t​z​e​r​o​b​e​r​f​l​ä​c​h​e​ ​f​ü​r​ ​D​e​s​k​t​o​p​ ​u​n​d​ ​M​o​b​i​l​g​e​r​ä​t​e​.​ ​S​e​t​z​e​n​ ​S​i​e​ ​w​ö​c​h​e​n​t​l​i​c​h​e​ ​P​r​i​o​r​i​t​ä​t​e​n​ ​m​i​t​ ​w​e​n​i​g​e​n​ ​K​l​i​c​k​s​.
+				 */
+				description: string
+			}
+			multiInstitution: {
+				/**
+				 * M​u​l​t​i​-​I​n​s​t​i​t​u​t​i​o​n​e​n​-​U​n​t​e​r​s​t​ü​t​z​u​n​g
+				 */
+				title: string
+				/**
+				 * U​n​t​e​r​s​t​ü​t​z​t​ ​m​e​h​r​e​r​e​ ​K​i​n​d​e​r​b​e​t​r​e​u​u​n​g​s​e​i​n​r​i​c​h​t​u​n​g​e​n​ ​m​i​t​ ​s​e​p​a​r​a​t​e​r​ ​V​e​r​w​a​l​t​u​n​g​ ​u​n​d​ ​D​a​t​e​n​i​s​o​l​i​e​r​u​n​g​.
+				 */
+				description: string
+			}
+			secure: {
+				/**
+				 * S​i​c​h​e​r​ ​&​ ​Z​u​v​e​r​l​ä​s​s​i​g
+				 */
+				title: string
+				/**
+				 * M​o​d​e​r​n​e​ ​S​i​c​h​e​r​h​e​i​t​s​p​r​a​k​t​i​k​e​n​ ​m​i​t​ ​v​e​r​s​c​h​l​ü​s​s​e​l​t​e​r​ ​S​p​e​i​c​h​e​r​u​n​g​ ​u​n​d​ ​s​i​c​h​e​r​e​n​ ​A​u​t​h​e​n​t​i​f​i​z​i​e​r​u​n​g​s​m​e​t​h​o​d​e​n​.
+				 */
+				description: string
+			}
+			transparent: {
+				/**
+				 * O​p​e​n​ ​S​o​u​r​c​e
+				 */
+				title: string
+				/**
+				 * V​o​l​l​s​t​ä​n​d​i​g​ ​O​p​e​n​ ​S​o​u​r​c​e​ ​a​u​f​ ​G​i​t​H​u​b​.​ ​Ü​b​e​r​p​r​ü​f​e​n​ ​S​i​e​ ​d​e​n​ ​C​o​d​e​ ​u​n​d​ ​t​r​a​g​e​n​ ​S​i​e​ ​z​u​r​ ​E​n​t​w​i​c​k​l​u​n​g​ ​b​e​i​.
+				 */
+				description: string
+			}
+		}
+		howItWorks: {
+			/**
+			 * W​i​e​ ​e​s​ ​f​u​n​k​t​i​o​n​i​e​r​t
+			 */
+			title: string
+			/**
+			 * B​e​g​i​n​n​e​n​ ​S​i​e​ ​i​n​ ​d​r​e​i​ ​e​i​n​f​a​c​h​e​n​ ​S​c​h​r​i​t​t​e​n
+			 */
+			subtitle: string
+			step1: {
+				/**
+				 * R​e​g​i​s​t​r​i​e​r​e​n
+				 */
+				title: string
+				/**
+				 * E​r​h​a​l​t​e​n​ ​S​i​e​ ​e​i​n​e​n​ ​R​e​g​i​s​t​r​i​e​r​u​n​g​s​l​i​n​k​ ​o​d​e​r​ ​Q​R​-​C​o​d​e​ ​v​o​n​ ​I​h​r​e​r​ ​K​i​n​d​e​r​b​e​t​r​e​u​u​n​g​s​e​i​n​r​i​c​h​t​u​n​g​.
+				 */
+				description: string
+			}
+			step2: {
+				/**
+				 * P​r​i​o​r​i​t​ä​t​e​n​ ​s​e​t​z​e​n
+				 */
+				title: string
+				/**
+				 * W​ä​h​l​e​n​ ​S​i​e​ ​I​h​r​e​ ​w​ö​c​h​e​n​t​l​i​c​h​e​n​ ​K​i​n​d​e​r​b​e​t​r​e​u​u​n​g​s​p​r​i​o​r​i​t​ä​t​e​n​ ​f​ü​r​ ​j​e​d​e​n​ ​W​o​c​h​e​n​t​a​g​ ​(​M​o​n​t​a​g​-​F​r​e​i​t​a​g​)​.
+				 */
+				description: string
+			}
+			step3: {
+				/**
+				 * E​n​t​s​p​a​n​n​e​n
+				 */
+				title: string
+				/**
+				 * I​h​r​e​ ​P​r​ä​f​e​r​e​n​z​e​n​ ​w​e​r​d​e​n​ ​s​i​c​h​e​r​ ​g​e​s​p​e​i​c​h​e​r​t​ ​u​n​d​ ​v​e​r​s​c​h​l​ü​s​s​e​l​t​.​ ​A​d​m​i​n​i​s​t​r​a​t​o​r​e​n​ ​k​ö​n​n​e​n​ ​v​e​r​s​c​h​l​ü​s​s​e​l​t​e​ ​B​e​r​i​c​h​t​e​ ​g​e​n​e​r​i​e​r​e​n​.
+				 */
+				description: string
+			}
+		}
+		cta: {
+			/**
+			 * B​e​r​e​i​t​ ​a​n​z​u​f​a​n​g​e​n​?
+			 */
+			title: string
+			/**
+			 * S​c​h​l​i​e​ß​e​n​ ​S​i​e​ ​s​i​c​h​ ​E​l​t​e​r​n​ ​a​n​,​ ​d​i​e​ ​i​h​r​e​ ​K​i​n​d​e​r​b​e​t​r​e​u​u​n​g​s​p​r​i​o​r​i​t​ä​t​e​n​ ​b​e​r​e​i​t​s​ ​s​i​c​h​e​r​ ​v​e​r​w​a​l​t​e​n​.
+			 */
+			subtitle: string
+			/**
+			 * A​n​m​e​l​d​e​n
+			 */
+			loginButton: string
+			/**
+			 * N​o​c​h​ ​k​e​i​n​ ​K​o​n​t​o​?​ ​E​r​f​a​h​r​e​n​ ​S​i​e​,​ ​w​i​e​ ​S​i​e​ ​s​i​c​h​ ​r​e​g​i​s​t​r​i​e​r​e​n​ ​→
+			 */
+			registerInfo: string
+		}
+		footer: {
+			/**
+			 * P​r​i​o​T​a​g​ ​i​s​t​ ​e​i​n​e​ ​O​p​e​n​-​S​o​u​r​c​e​-​L​ö​s​u​n​g​ ​z​u​r​ ​V​e​r​w​a​l​t​u​n​g​ ​v​o​n​ ​K​i​n​d​e​r​b​e​t​r​e​u​u​n​g​s​p​r​i​o​r​i​t​ä​t​e​n​ ​m​i​t​ ​F​o​k​u​s​ ​a​u​f​ ​D​a​t​e​n​s​c​h​u​t​z​.
+			 */
+			description: string
+			/**
+			 * L​i​n​k​s
+			 */
+			links: string
+			/**
+			 * R​e​c​h​t​l​i​c​h​e​s
+			 */
+			legal: string
+		}
+	}
 	auth: {
 		login: {
 			/**
-			 * A​n​m​e​l​d​e​n
+			 * L​o​g​i​n
 			 */
 			title: string
 			/**
@@ -1373,10 +1539,176 @@ export type TranslationFunctions = {
 		 */
 		subtitle: () => LocalizedString
 	}
+	landing: {
+		hero: {
+			/**
+			 * Kinderbetreuungs-Prioritätenverwaltung
+			 */
+			title: () => LocalizedString
+			/**
+			 * Verwalten Sie Kinderbetreuungsprioritäten sicher mit Verschlüsselung und DSGVO-Konformität.
+			 */
+			subtitle: () => LocalizedString
+			/**
+			 * Anmelden
+			 */
+			loginButton: () => LocalizedString
+			/**
+			 * Registrieren
+			 */
+			registerButton: () => LocalizedString
+			/**
+			 * Mehr erfahren
+			 */
+			learnMore: () => LocalizedString
+		}
+		features: {
+			/**
+			 * Warum PrioTag?
+			 */
+			title: () => LocalizedString
+			/**
+			 * Entwickelt mit Fokus auf Datenschutz und Benutzerfreundlichkeit
+			 */
+			subtitle: () => LocalizedString
+			privacy: {
+				/**
+				 * Datenschutz zuerst
+				 */
+				title: () => LocalizedString
+				/**
+				 * Serverseitige AES-256-GCM-Verschlüsselung stellt sicher, dass Ihre Daten privat bleiben. Nur Sie und die Administration ihres Kindergarten können Ihre Informationen entschlüsseln.
+				 */
+				description: () => LocalizedString
+			}
+			gdpr: {
+				/**
+				 * DSGVO-konform
+				 */
+				title: () => LocalizedString
+				/**
+				 * Vollständige Einhaltung der Datenschutz-Grundverordnung u.A. durch Minimierung der erfassten Daten, Absicherung der Daten nach Stand der Technik, Datenexport und Löschrechten.
+				 */
+				description: () => LocalizedString
+			}
+			easyToUse: {
+				/**
+				 * Einfach zu bedienen
+				 */
+				title: () => LocalizedString
+				/**
+				 * Intuitive Benutzeroberfläche für Desktop und Mobilgeräte. Setzen Sie wöchentliche Prioritäten mit wenigen Klicks.
+				 */
+				description: () => LocalizedString
+			}
+			multiInstitution: {
+				/**
+				 * Multi-Institutionen-Unterstützung
+				 */
+				title: () => LocalizedString
+				/**
+				 * Unterstützt mehrere Kinderbetreuungseinrichtungen mit separater Verwaltung und Datenisolierung.
+				 */
+				description: () => LocalizedString
+			}
+			secure: {
+				/**
+				 * Sicher & Zuverlässig
+				 */
+				title: () => LocalizedString
+				/**
+				 * Moderne Sicherheitspraktiken mit verschlüsselter Speicherung und sicheren Authentifizierungsmethoden.
+				 */
+				description: () => LocalizedString
+			}
+			transparent: {
+				/**
+				 * Open Source
+				 */
+				title: () => LocalizedString
+				/**
+				 * Vollständig Open Source auf GitHub. Überprüfen Sie den Code und tragen Sie zur Entwicklung bei.
+				 */
+				description: () => LocalizedString
+			}
+		}
+		howItWorks: {
+			/**
+			 * Wie es funktioniert
+			 */
+			title: () => LocalizedString
+			/**
+			 * Beginnen Sie in drei einfachen Schritten
+			 */
+			subtitle: () => LocalizedString
+			step1: {
+				/**
+				 * Registrieren
+				 */
+				title: () => LocalizedString
+				/**
+				 * Erhalten Sie einen Registrierungslink oder QR-Code von Ihrer Kinderbetreuungseinrichtung.
+				 */
+				description: () => LocalizedString
+			}
+			step2: {
+				/**
+				 * Prioritäten setzen
+				 */
+				title: () => LocalizedString
+				/**
+				 * Wählen Sie Ihre wöchentlichen Kinderbetreuungsprioritäten für jeden Wochentag (Montag-Freitag).
+				 */
+				description: () => LocalizedString
+			}
+			step3: {
+				/**
+				 * Entspannen
+				 */
+				title: () => LocalizedString
+				/**
+				 * Ihre Präferenzen werden sicher gespeichert und verschlüsselt. Administratoren können verschlüsselte Berichte generieren.
+				 */
+				description: () => LocalizedString
+			}
+		}
+		cta: {
+			/**
+			 * Bereit anzufangen?
+			 */
+			title: () => LocalizedString
+			/**
+			 * Schließen Sie sich Eltern an, die ihre Kinderbetreuungsprioritäten bereits sicher verwalten.
+			 */
+			subtitle: () => LocalizedString
+			/**
+			 * Anmelden
+			 */
+			loginButton: () => LocalizedString
+			/**
+			 * Noch kein Konto? Erfahren Sie, wie Sie sich registrieren →
+			 */
+			registerInfo: () => LocalizedString
+		}
+		footer: {
+			/**
+			 * PrioTag ist eine Open-Source-Lösung zur Verwaltung von Kinderbetreuungsprioritäten mit Fokus auf Datenschutz.
+			 */
+			description: () => LocalizedString
+			/**
+			 * Links
+			 */
+			links: () => LocalizedString
+			/**
+			 * Rechtliches
+			 */
+			legal: () => LocalizedString
+		}
+	}
 	auth: {
 		login: {
 			/**
-			 * Anmelden
+			 * Login
 			 */
 			title: () => LocalizedString
 			/**

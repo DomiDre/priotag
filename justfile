@@ -1,3 +1,7 @@
+mod frontend
+mod backend
+mod monitoring
+
 # List available commands
 default:
     @just --list
@@ -64,71 +68,25 @@ logs-dev service="":
 github-action job:
     act --rm -j {{job}} --secret-file "./.github/.secrets"
 
-# Open shell in backend container
-shell-backend:
-    docker compose run --rm -it backend /bin/bash
-
-# Open shell in backend container (development)
-shell-backend-dev:
-    docker compose -f docker-compose.dev.yml run --rm -it backend /bin/bash
-
-# Open shell in frontend container
-shell-frontend:
-    docker compose run --rm -it frontend /bin/sh
-
-# Open shell in frontend container (development)
-shell-frontend-dev:
-    docker compose -f docker-compose.dev.yml run --rm -it frontend /bin/sh
-
-# Run backend tests
-test-backend:
-    docker compose -f docker-compose.dev.yml run --rm backend uv run pytest
-
-# Run frontend tests
-test-frontend:
-    docker compose -f docker-compose.dev.yml run --rm frontend npm test
-
 # Run all tests
-test: test-backend test-frontend
-
-
-test-locally *args:
-    cd backend && uv run pytest {{ args }}
+test: backend::test frontend::test
 
 test-cli-locally:
     ./scripts/test-ci-locally.sh
-
-# Format backend code
-format-backend:
-    docker compose -f docker-compose.dev.yml run --rm backend uv run ruff format .
-    docker compose -f docker-compose.dev.yml run --rm backend uv run ruff check --fix .
-
-# Format frontend code
-format-frontend:
-    docker compose -f docker-compose.dev.yml run --rm frontend npm run format
 
 # Format admin ui code
 format-admin:
     docker compose -f docker-compose.dev.yml run --rm admin npm run format
     
 # Format all code
-format: format-backend format-frontend format-admin
-
-# Lint backend code
-lint-backend:
-    docker compose -f docker-compose.dev.yml run --rm backend uv run ruff check .
-    docker compose -f docker-compose.dev.yml run --rm backend uv run mypy .
-
-# Lint frontend code  
-lint-frontend:
-    docker compose -f docker-compose.dev.yml run --rm frontend npm run lint
+format: backend::format frontend::format format-admin
 
 # Lint admin ui code  
 lint-admin:
     docker compose -f docker-compose.dev.yml run --rm admin npm run lint
     
 # Lint all code
-lint: lint-backend lint-frontend lint-admin
+lint: backend::lint frontend::lint lint-admin
 
 # Clean up Docker system
 clean:
@@ -157,22 +115,9 @@ restart service:
 restart-dev service:
     docker compose -f docker-compose.dev.yml restart {{service}}
 
-# Execute command in backend container
-exec-backend command:
-    docker compose -f docker-compose.dev.yml exec backend {{command}}
-
-# Execute command in frontend container
-exec-frontend command:
-    docker compose -f docker-compose.dev.yml exec frontend {{command}}
-
 # View environment variables
 env:
     docker compose -f docker-compose.dev.yml exec backend env | sort
-
-# Build frontend static files in development
-build-frontend-dev:
-    docker compose -f docker-compose.dev.yml exec frontend npm run build
-    @echo "Frontend built! Static files are now available."
 
 # Copy built frontend files to backend (for testing static serving)
 copy-static-to-backend:
@@ -259,44 +204,3 @@ services-init:
 redis-clear:
     docker compose -f ./docker-compose.dev.yml exec redis redis-cli FLUSHALL
 
-
-# Start monitoring stack
-monitoring-up:
-    docker compose -f ./monitoring/docker-compose.monitoring.yml up -d
-
-# Stop monitoring stack
-monitoring-down:
-    docker compose -f ./monitoring/docker-compose.monitoring.yml down
-
-# View monitoring logs
-monitoring-logs service="":
-    #!/usr/bin/env bash
-    if [ -z "{{service}}" ]; then
-        docker compose -f ./monitoring/docker-compose.monitoring.yml logs -f
-    else
-        docker compose -f ./monitoring/docker-compose.monitoring.yml logs -f {{service}}
-    fi
-
-# Restart monitoring service
-monitoring-restart service:
-    docker compose -f ./monitoring/docker-compose.monitoring.yml restart {{service}}
-
-# Check Prometheus targets
-monitoring-targets:
-    @curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health, lastError: .lastError}'
-
-# Reload Prometheus config
-monitoring-reload:
-    @curl -X POST http://localhost:9090/-/reload
-
-# Test alert
-monitoring-test-alert:
-    @curl -X POST http://localhost:9093/api/v1/alerts -d '[{"labels":{"alertname":"TestAlert","severity":"warning"}}]'
-
-# Show monitoring status
-monitoring-status:
-    @echo "=== Monitoring Stack Status ==="
-    @docker compose -f ./monitoring/docker-compose.monitoring.yml ps
-    @echo ""
-    @echo "=== Service URLs ==="
-    @echo "Prometheus: https://prometheus.priotag.de"

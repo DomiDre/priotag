@@ -35,6 +35,79 @@ const en = {
 		subtitle: 'Set priority days for the month'
 	},
 
+	// Landing page
+	landing: {
+		hero: {
+			title: 'Childcare Priority Management',
+			subtitle: 'Manage childcare priorities securely with encryption and GDPR compliance.',
+			loginButton: 'Log in',
+			registerButton: 'Register',
+			learnMore: 'Learn more'
+		},
+		features: {
+			title: 'Why PrioTag?',
+			subtitle: 'Built with privacy and ease of use in mind',
+			privacy: {
+				title: 'Privacy First',
+				description:
+					'Server-side AES-256-GCM encryption ensures your data stays private. Only you and the administration of your childcare facility can decrypt your information.'
+			},
+			gdpr: {
+				title: 'GDPR Compliant',
+				description:
+					'Full compliance with General Data Protection Regulation including minimization of the collected data, securing the data following the state of the art, as well as data export and deletion rights.'
+			},
+			easyToUse: {
+				title: 'Easy to Use',
+				description:
+					'Intuitive interface for both desktop and mobile. Set weekly priorities with just a few clicks.'
+			},
+			multiInstitution: {
+				title: 'Multi-Institution Support',
+				description:
+					'Supports multiple childcare facilities with separate administration and data isolation.'
+			},
+			secure: {
+				title: 'Secure & Reliable',
+				description:
+					'Modern security practices with encrypted storage and secure authentication methods.'
+			},
+			transparent: {
+				title: 'Open Source',
+				description: 'Fully open source on GitHub. Review the code and contribute to development.'
+			}
+		},
+		howItWorks: {
+			title: 'How It Works',
+			subtitle: 'Get started in three simple steps',
+			step1: {
+				title: 'Register',
+				description: 'Receive a registration link or QR code from your childcare institution.'
+			},
+			step2: {
+				title: 'Set Priorities',
+				description: 'Choose your weekly childcare priorities for each weekday (Monday-Friday).'
+			},
+			step3: {
+				title: 'Relax',
+				description:
+					'Your preferences are securely stored and encrypted. Administrators can generate encrypted reports.'
+			}
+		},
+		cta: {
+			title: 'Ready to get started?',
+			subtitle: 'Join parents who are already managing their childcare priorities securely.',
+			loginButton: 'Log in',
+			registerInfo: "Don't have an account? Learn how to register →"
+		},
+		footer: {
+			description:
+				'PrioTag is an open-source childcare priority management solution with a focus on privacy.',
+			links: 'Links',
+			legal: 'Legal'
+		}
+	},
+
 	// Authentication
 	auth: {
 		login: {
