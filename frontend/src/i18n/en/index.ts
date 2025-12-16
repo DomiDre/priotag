@@ -39,8 +39,7 @@ const en = {
 	landing: {
 		hero: {
 			title: 'Childcare Priority Management',
-			subtitle:
-				'Manage childcare priorities securely with encryption and GDPR compliance.',
+			subtitle: 'Manage childcare priorities securely with encryption and GDPR compliance.',
 			loginButton: 'Log in',
 			registerButton: 'Register',
 			learnMore: 'Learn more'
@@ -75,8 +74,7 @@ const en = {
 			},
 			transparent: {
 				title: 'Open Source',
-				description:
-					'Fully open source on GitHub. Review the code and contribute to development.'
+				description: 'Fully open source on GitHub. Review the code and contribute to development.'
 			}
 		},
 		howItWorks: {
@@ -84,13 +82,11 @@ const en = {
 			subtitle: 'Get started in three simple steps',
 			step1: {
 				title: 'Register',
-				description:
-					'Receive a registration link or QR code from your childcare institution.'
+				description: 'Receive a registration link or QR code from your childcare institution.'
 			},
 			step2: {
 				title: 'Set Priorities',
-				description:
-					'Choose your weekly childcare priorities for each weekday (Monday-Friday).'
+				description: 'Choose your weekly childcare priorities for each weekday (Monday-Friday).'
 			},
 			step3: {
 				title: 'Relax',

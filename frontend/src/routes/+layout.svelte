@@ -54,7 +54,6 @@
 			isVerifying = false;
 		}
 	});
-
 </script>
 
 <svelte:head>

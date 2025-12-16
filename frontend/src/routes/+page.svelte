@@ -26,7 +26,9 @@
 </script>
 
 {#if !$isAuthenticated}
-	<div class="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+	<div
+		class="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800"
+	>
 		<!-- Navigation -->
 		<nav class="container mx-auto px-4 py-6">
 			<div class="flex items-center justify-between">
@@ -59,12 +61,10 @@
 						<span class="text-7xl">📋</span>
 					</div>
 				</div>
-				<h2
-					class="mb-6 text-5xl font-extrabold text-gray-900 dark:text-white md:text-6xl"
-				>
+				<h2 class="mb-6 text-5xl font-extrabold text-gray-900 md:text-6xl dark:text-white">
 					{$LL.landing.hero.title()}
 				</h2>
-				<p class="mb-10 text-xl text-gray-600 dark:text-gray-300 md:text-2xl">
+				<p class="mb-10 text-xl text-gray-600 md:text-2xl dark:text-gray-300">
 					{$LL.landing.hero.subtitle()}
 				</p>
 				<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -80,7 +80,7 @@
 						onclick={goToRegisterInfo}
 						class="w-full rounded-xl bg-white px-8 py-4 text-lg font-semibold text-gray-800
 						       shadow-lg transition-colors hover:bg-gray-100
-						       dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 sm:w-auto"
+						       sm:w-auto dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700"
 					>
 						{$LL.landing.hero.registerButton()}
 					</button>
@@ -88,8 +88,8 @@
 						onclick={scrollToFeatures}
 						class="w-full rounded-xl border-2 border-purple-600 px-8 py-4 text-lg
 						       font-semibold text-purple-600 transition-colors hover:bg-purple-50
-						       dark:border-purple-400 dark:text-purple-400 dark:hover:bg-purple-900/20
-						       sm:w-auto"
+						       sm:w-auto dark:border-purple-400 dark:text-purple-400
+						       dark:hover:bg-purple-900/20"
 					>
 						{$LL.landing.hero.learnMore()}
 					</button>
@@ -198,7 +198,9 @@
 		</section>
 
 		<!-- How It Works Section -->
-		<section class="bg-gradient-to-br from-purple-50 to-blue-50 py-20 dark:from-gray-800 dark:to-gray-900">
+		<section
+			class="bg-gradient-to-br from-purple-50 to-blue-50 py-20 dark:from-gray-800 dark:to-gray-900"
+		>
 			<div class="container mx-auto max-w-6xl px-4">
 				<div class="mb-16 text-center">
 					<h3 class="mb-4 text-4xl font-bold text-gray-900 dark:text-white">
@@ -353,7 +355,8 @@
 				</div>
 
 				<div class="mt-8 border-t border-gray-800 pt-8 text-center text-sm text-gray-500">
-					© {new Date().getFullYear()} {$LL.app.title()} - Open Source Software
+					© {new Date().getFullYear()}
+					{$LL.app.title()} - Open Source Software
 				</div>
 			</div>
 		</footer>
