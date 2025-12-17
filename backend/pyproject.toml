@@ -51,6 +51,9 @@ ocr = [
     "paddleocr[all]>=3.2.0",
     "paddlepaddle>=3.2.0",
 ]
+load_test = [
+    "locust>=2.34.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.8.17,<0.9.0"]
