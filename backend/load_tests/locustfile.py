@@ -17,15 +17,14 @@ Environment Variables:
 
 import random
 
-from locust import HttpUser, task, between, events
-from locust.exception import StopUser, RescheduleTask
-
 from config import config
+from locust import HttpUser, between, events, task
+from locust.exception import RescheduleTask, StopUser
 from utils import (
+    UserSession,
     generate_priority_data,
     get_next_month,
     get_random_month,
-    UserSession,
 )
 
 
@@ -84,7 +83,7 @@ class PriotagUser(HttpUser):
             )
         except Exception as e:
             print(f"Connection error during magic word verification: {e}")
-            raise StopUser()
+            raise StopUser() from e
 
         # Handle status code 0 (connection failed)
         if response.status_code == 0 or not response.text:

@@ -17,10 +17,9 @@ Options:
 """
 
 import argparse
-import requests
 import time
-from typing import Tuple, Optional
 
+import requests
 from config import config
 
 
@@ -30,7 +29,7 @@ def retry_request(
     initial_delay: float = 1.0,
     backoff_factor: float = 2.0,
     rate_limit_delay: float = 60.0,
-) -> Optional[requests.Response]:
+) -> requests.Response | None:
     """
     Retry a request function with exponential backoff and rate limit handling.
 
@@ -105,7 +104,7 @@ def cleanup_user_range(
     max_retries: int = 3,
     delay_between_users: float = 0.5,
     rate_limit_delay: float = 5.0,
-) -> Tuple[int, int, int]:
+) -> tuple[int, int, int]:
     """
     Clean up users in a specific ID range.
 
@@ -141,7 +140,7 @@ def cleanup_user_range(
             # Try to login as the user to check if it exists
             login_url = f"{host}{config.API_PREFIX}/auth/login"
 
-            def login_request():
+            def login_request(session=session, login_url=login_url, username=username):
                 return session.post(
                     login_url,
                     json={
@@ -205,7 +204,7 @@ def cleanup_user_range(
                 # Delete the user using the same session
                 delete_url = f"{host}{config.API_PREFIX}/account/delete"
 
-                def delete_request():
+                def delete_request(session=session, delete_url=delete_url):
                     return session.delete(delete_url, timeout=15)
 
                 delete_response = retry_request(

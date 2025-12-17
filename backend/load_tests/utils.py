@@ -4,7 +4,6 @@ Utility functions for load testing.
 
 import random
 from datetime import datetime, timedelta
-from typing import Optional
 
 from config import config
 
@@ -91,8 +90,8 @@ class UserSession:
     def __init__(self, username: str, password: str):
         self.username = username
         self.password = password
-        self.auth_token: Optional[str] = None
-        self.dek: Optional[str] = None
+        self.auth_token: str | None = None
+        self.dek: str | None = None
         self.cookies: dict = {}
 
     def is_authenticated(self) -> bool:
