@@ -23,8 +23,8 @@ from locust.exception import StopUser, RescheduleTask
 from config import config
 from utils import (
     generate_priority_data,
+    get_next_month,
     get_random_month,
-    get_current_month,
     UserSession,
 )
 
@@ -72,20 +72,32 @@ class PriotagUser(HttpUser):
     def register(self):
         """Register a new user."""
         # Step 1: Verify magic word
-        response = self.client.post(
-            config.get_api_url("auth/verify-magic-word"),
-            json={
-                "magic_word": config.MAGIC_WORD,
-                "institution_short_code": config.INSTITUTION_ID,
-            },
-            name="/api/v1/auth/verify-magic-word",
-        )
+        try:
+            response = self.client.post(
+                config.get_api_url("auth/verify-magic-word"),
+                json={
+                    "magic_word": config.MAGIC_WORD,
+                    "institution_short_code": config.INSTITUTION_ID,
+                },
+                name="/api/v1/auth/verify-magic-word",
+                timeout=10,  # Add timeout
+            )
+        except Exception as e:
+            print(f"Connection error during magic word verification: {e}")
+            raise StopUser()
+
+        # Handle status code 0 (connection failed)
+        if response.status_code == 0 or not response.text:
+            print(f"No response from server (status: {response.status_code})")
+            raise RescheduleTask()
 
         if response.status_code == 429:
-            print(f"Hit rate limit when verifying magic work: {response.status_code}")
+            print(f"Hit rate limit when verifying magic word: {response.status_code}")
             raise RescheduleTask()
         elif response.status_code != 200:
-            print(f"Failed to verify magic word: {response.status_code}")
+            print(
+                f"Failed to verify magic word: {response.status_code}, {response.text}"
+            )
             raise StopUser()
 
         registration_token = response.json().get("token")
@@ -107,16 +119,25 @@ class PriotagUser(HttpUser):
         )
 
         if response.status_code == 429:
-            print(f"Hit rate limit when verifying magic work: {response.status_code}")
+            print(f"Hit rate limit when registering: {response.status_code}")
             raise RescheduleTask()
         elif response.status_code == 200:
             self.registered = True
             self.session.update_cookies(response)
             print(f"Registered user: {self.username}")
-        elif response.status_code == 400 and "already exists" in response.text.lower():
-            # User already exists, that's fine
-            self.registered = True
-            print(f"User already exists: {self.username}")
+        elif response.status_code == 400:
+            # Check if user already exists (handle different error messages)
+            response_text = response.text.lower()
+            if "already exists" in response_text or "unique" in response_text:
+                # User already exists, that's fine - just mark as registered
+                self.registered = True
+                print(f"User already exists: {self.username}")
+            else:
+                # Some other 400 error
+                print(
+                    f"Failed to register user {self.username}: {response.status_code}, {response.text}"
+                )
+                raise StopUser()
         else:
             print(
                 f"Failed to register user {self.username}: {response.status_code}, {response.text}"
@@ -287,12 +308,15 @@ class IntensiveUser(HttpUser):
         """Register user (simplified)."""
         response = self.client.post(
             config.get_api_url("auth/verify-magic-word"),
-            json={"magic_word": config.MAGIC_WORD},
+            json={
+                "magic_word": config.MAGIC_WORD,
+                "institution_short_code": config.INSTITUTION_ID,
+            },
             name="/api/v1/auth/verify-magic-word",
         )
 
         if response.status_code == 200:
-            registration_token = response.json().get("registrationToken")
+            registration_token = response.json().get("token")
             response = self.client.post(
                 config.get_api_url("auth/register"),
                 json={
@@ -307,8 +331,13 @@ class IntensiveUser(HttpUser):
             if response.status_code == 200:
                 self.registered = True
                 self.session.update_cookies(response)
-        elif response.status_code == 400:
-            self.registered = True
+                print(f"Registered intensive user: {self.username}")
+            elif response.status_code == 400:
+                # Likely user already exists
+                response_text = response.text.lower()
+                if "already exists" in response_text or "unique" in response_text:
+                    self.registered = True
+                    print(f"Intensive user already exists: {self.username}")
 
     def login(self):
         """Login intensive user."""
@@ -331,7 +360,7 @@ class IntensiveUser(HttpUser):
         if not self.session.is_authenticated():
             return
 
-        month = get_current_month()
+        month = get_next_month()
         priority_data = generate_priority_data(month)
 
         self.client.put(

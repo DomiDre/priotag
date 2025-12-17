@@ -9,7 +9,7 @@ from typing import Optional
 from config import config
 
 
-def generate_priority_data(month: str) -> dict:
+def generate_priority_data(month: str) -> list:
     """
     Generate realistic priority data for a given month.
 
@@ -52,7 +52,7 @@ def generate_priority_data(month: str) -> dict:
         current_date += timedelta(days=7)
         week_num += 1
 
-    return {"weeks": weeks}
+    return weeks
 
 
 def generate_week_data(week_number: int) -> dict:
@@ -75,9 +75,9 @@ def generate_week_data(week_number: int) -> dict:
     }
 
 
-def get_current_month() -> str:
+def get_next_month() -> str:
     """Get current month in YYYY-MM format."""
-    return datetime.now().strftime("%Y-%m")
+    return (datetime.now() + timedelta(days=32)).strftime("%Y-%m")
 
 
 def get_random_month() -> str:
