@@ -1,6 +1,7 @@
 """
 Utility functions for load testing.
 """
+
 import random
 from datetime import datetime, timedelta
 from typing import Optional
@@ -32,22 +33,24 @@ def generate_priority_data(month: str) -> dict:
     # Calculate week numbers
     weeks = []
     current_date = first_day
-    week_num = current_date.isocalendar()[1]
 
     seen_weeks = set()
+    week_num = 1
     while current_date <= last_day:
-        iso_week = current_date.isocalendar()[1]
-        if iso_week not in seen_weeks:
-            seen_weeks.add(iso_week)
-            weeks.append({
-                "weekNumber": iso_week,
-                "monday": random.choice(config.PRIORITY_VALUES),
-                "tuesday": random.choice(config.PRIORITY_VALUES),
-                "wednesday": random.choice(config.PRIORITY_VALUES),
-                "thursday": random.choice(config.PRIORITY_VALUES),
-                "friday": random.choice(config.PRIORITY_VALUES),
-            })
+        if week_num not in seen_weeks:
+            seen_weeks.add(week_num)
+            weeks.append(
+                {
+                    "weekNumber": week_num,
+                    "monday": random.choice(config.PRIORITY_VALUES),
+                    "tuesday": random.choice(config.PRIORITY_VALUES),
+                    "wednesday": random.choice(config.PRIORITY_VALUES),
+                    "thursday": random.choice(config.PRIORITY_VALUES),
+                    "friday": random.choice(config.PRIORITY_VALUES),
+                }
+            )
         current_date += timedelta(days=7)
+        week_num += 1
 
     return {"weeks": weeks}
 

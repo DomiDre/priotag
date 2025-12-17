@@ -14,7 +14,7 @@
 set -e
 
 # Configuration
-HOST=${1:-"http://localhost:8000"}
+HOST=${LOAD_TEST_BASE_URL:-"http://localhost:8000"}
 WEB_PORT=${2:-8089}
 
 echo "========================================="

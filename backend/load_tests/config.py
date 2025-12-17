@@ -1,8 +1,8 @@
 """
 Configuration for load testing the Priotag backend.
 """
+
 import os
-from typing import Optional
 
 
 class LoadTestConfig:
@@ -28,7 +28,7 @@ class LoadTestConfig:
     PRIORITY_VALUES = [1, 2, 3, 4, 5, None]  # Valid priority values
 
     # Test months to use
-    TEST_MONTHS = ["2025-01", "2025-02", "2025-03", "2025-04"]
+    TEST_MONTHS = ["2026-01", "2026-02"]
 
     # Cleanup configuration
     CLEANUP_USERS = os.getenv("LOAD_TEST_CLEANUP", "true").lower() == "true"

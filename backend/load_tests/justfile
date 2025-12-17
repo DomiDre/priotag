@@ -1,0 +1,7 @@
+basic:
+    #!/usr/bin/bash
+    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs) && ./scripts/run_basic.sh
+
+clean *args:
+    #!/usr/bin/bash
+    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs) && python ./cleanup.py {{args}}

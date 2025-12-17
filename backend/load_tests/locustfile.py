@@ -16,11 +16,9 @@ Environment Variables:
 """
 
 import random
-import time
-from typing import Optional
 
 from locust import HttpUser, task, between, events
-from locust.exception import StopUser
+from locust.exception import StopUser, RescheduleTask
 
 from config import config
 from utils import (
@@ -44,9 +42,7 @@ class PriotagUser(HttpUser):
     """
 
     # Wait between 1-3 seconds between tasks (realistic user behavior)
-    wait_time = between(
-        config.MIN_WAIT_TIME / 1000, config.MAX_WAIT_TIME / 1000
-    )
+    wait_time = between(config.MIN_WAIT_TIME / 1000, config.MAX_WAIT_TIME / 1000)
 
     # Class-level counter for unique user IDs
     user_counter = 0
@@ -78,15 +74,21 @@ class PriotagUser(HttpUser):
         # Step 1: Verify magic word
         response = self.client.post(
             config.get_api_url("auth/verify-magic-word"),
-            json={"magicWord": config.MAGIC_WORD},
+            json={
+                "magic_word": config.MAGIC_WORD,
+                "institution_short_code": config.INSTITUTION_ID,
+            },
             name="/api/v1/auth/verify-magic-word",
         )
 
-        if response.status_code != 200:
+        if response.status_code == 429:
+            print(f"Hit rate limit when verifying magic work: {response.status_code}")
+            raise RescheduleTask()
+        elif response.status_code != 200:
             print(f"Failed to verify magic word: {response.status_code}")
             raise StopUser()
 
-        registration_token = response.json().get("registrationToken")
+        registration_token = response.json().get("token")
         if not registration_token:
             print("No registration token received")
             raise StopUser()
@@ -95,8 +97,8 @@ class PriotagUser(HttpUser):
         response = self.client.post(
             config.get_api_url("auth/register"),
             json={
-                "registrationToken": registration_token,
-                "username": self.username,
+                "registration_token": registration_token,
+                "identity": self.username,
                 "password": self.password,
                 "passwordConfirm": self.password,
                 "name": f"Load Test User {self.user_id}",
@@ -104,7 +106,10 @@ class PriotagUser(HttpUser):
             name="/api/v1/auth/register",
         )
 
-        if response.status_code == 200:
+        if response.status_code == 429:
+            print(f"Hit rate limit when verifying magic work: {response.status_code}")
+            raise RescheduleTask()
+        elif response.status_code == 200:
             self.registered = True
             self.session.update_cookies(response)
             print(f"Registered user: {self.username}")
@@ -113,7 +118,9 @@ class PriotagUser(HttpUser):
             self.registered = True
             print(f"User already exists: {self.username}")
         else:
-            print(f"Failed to register user {self.username}: {response.status_code}")
+            print(
+                f"Failed to register user {self.username}: {response.status_code}, {response.text}"
+            )
             raise StopUser()
 
     def login(self):
@@ -128,7 +135,10 @@ class PriotagUser(HttpUser):
             name="/api/v1/auth/login",
         )
 
-        if response.status_code == 200:
+        if response.status_code == 429:
+            print(f"Hit rate limit when verifying magic work: {response.status_code}")
+            raise RescheduleTask()
+        elif response.status_code == 200:
             self.session.update_cookies(response)
             print(f"Logged in user: {self.username}")
         else:
@@ -143,7 +153,10 @@ class PriotagUser(HttpUser):
             name="/api/v1/auth/logout",
         )
 
-        if response.status_code == 200:
+        if response.status_code == 429:
+            print(f"Hit rate limit when verifying magic work: {response.status_code}")
+            raise RescheduleTask()
+        elif response.status_code == 200:
             self.session.clear_session()
 
     @task(10)
@@ -274,7 +287,7 @@ class IntensiveUser(HttpUser):
         """Register user (simplified)."""
         response = self.client.post(
             config.get_api_url("auth/verify-magic-word"),
-            json={"magicWord": config.MAGIC_WORD},
+            json={"magic_word": config.MAGIC_WORD},
             name="/api/v1/auth/verify-magic-word",
         )
 
@@ -283,8 +296,8 @@ class IntensiveUser(HttpUser):
             response = self.client.post(
                 config.get_api_url("auth/register"),
                 json={
-                    "registrationToken": registration_token,
-                    "username": self.username,
+                    "registration_token": registration_token,
+                    "identity": self.username,
                     "password": self.password,
                     "passwordConfirm": self.password,
                     "name": f"Intensive Test User {self.user_id}",

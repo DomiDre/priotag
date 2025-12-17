@@ -14,7 +14,7 @@
 set -e
 
 # Configuration
-HOST=${1:-"http://localhost:8000"}
+HOST=${LOAD_TEST_BASE_URL:-"http://localhost:8000"}
 USERS=${LOAD_TEST_SPIKE_USERS:-50}
 SPAWN_RATE=${LOAD_TEST_SPIKE_SPAWN_RATE:-25}  # Spawn users very quickly
 RUN_TIME=${LOAD_TEST_RUN_TIME:-"3m"}

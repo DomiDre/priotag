@@ -44,17 +44,6 @@ This load testing suite uses [Locust](https://locust.io/), a modern, scalable lo
 - pip (Python package manager)
 - Access to Priotag backend (running locally or deployed)
 
-### Install Dependencies
-
-```bash
-cd backend/load_tests
-pip install -r requirements.txt
-```
-
-This installs:
-- Locust (load testing framework)
-- requests (HTTP client library)
-
 ## Quick Start
 
 ### 1. Basic Load Test (Recommended First Test)
@@ -146,17 +135,17 @@ LOAD_TEST_RUN_TIME=3m \
 
 All tests can be configured using environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `LOAD_TEST_BASE_URL` | Backend URL | `http://localhost:8000` |
-| `LOAD_TEST_MAGIC_WORD` | Institution magic word for registration | `test-magic-word` |
-| `LOAD_TEST_USER_PREFIX` | Prefix for test usernames | `loadtest_user` |
-| `LOAD_TEST_USER_PASSWORD` | Password for test users | `TestPassword123!` |
-| `LOAD_TEST_MIN_WAIT` | Min wait between tasks (ms) | `1000` |
-| `LOAD_TEST_MAX_WAIT` | Max wait between tasks (ms) | `3000` |
-| `LOAD_TEST_USERS` | Number of concurrent users | `20` |
-| `LOAD_TEST_SPAWN_RATE` | Users spawned per second | `2` |
-| `LOAD_TEST_RUN_TIME` | Test duration (e.g., `5m`, `1h`) | `5m` |
+| Variable                  | Description                             | Default                 |
+| ------------------------- | --------------------------------------- | ----------------------- |
+| `LOAD_TEST_BASE_URL`      | Backend URL                             | `http://localhost:8000` |
+| `LOAD_TEST_MAGIC_WORD`    | Institution magic word for registration | `test-magic-word`       |
+| `LOAD_TEST_USER_PREFIX`   | Prefix for test usernames               | `loadtest_user`         |
+| `LOAD_TEST_USER_PASSWORD` | Password for test users                 | `TestPassword123!`      |
+| `LOAD_TEST_MIN_WAIT`      | Min wait between tasks (ms)             | `1000`                  |
+| `LOAD_TEST_MAX_WAIT`      | Max wait between tasks (ms)             | `3000`                  |
+| `LOAD_TEST_USERS`         | Number of concurrent users              | `20`                    |
+| `LOAD_TEST_SPAWN_RATE`    | Users spawned per second                | `2`                     |
+| `LOAD_TEST_RUN_TIME`      | Test duration (e.g., `5m`, `1h`)        | `5m`                    |
 
 ### Example: Custom Configuration
 
