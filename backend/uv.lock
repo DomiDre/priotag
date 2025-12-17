@@ -4469,8 +4469,6 @@ dependencies = [
     { name = "fastapi" },
     { name = "gunicorn" },
     { name = "httpx" },
-    { name = "locust", version = "2.34.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "locust", version = "2.41.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -4505,6 +4503,10 @@ dev = [
     { name = "types-pyyaml" },
     { name = "types-ujson" },
 ]
+load-test = [
+    { name = "locust", version = "2.34.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "locust", version = "2.41.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
 ocr = [
     { name = "matplotlib", version = "3.9.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "matplotlib", version = "3.10.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -4520,7 +4522,6 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "locust", specifier = ">=2.34.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.3.2" },
     { name = "pillow", specifier = ">=11.3.0" },
@@ -4553,6 +4554,7 @@ dev = [
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
     { name = "types-ujson", specifier = ">=5.10.0.20250822" },
 ]
+load-test = [{ name = "locust", specifier = ">=2.34.0" }]
 ocr = [
     { name = "matplotlib", specifier = ">=3.9.4" },
     { name = "opencv-python", specifier = ">=4.12.0.88" },

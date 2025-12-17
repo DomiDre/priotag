@@ -9,7 +9,7 @@ services:
       - ./backend/src:/app/src
       - ./backend/tests:/app/tests
       - ./backend/pyproject.toml:/app/pyproject.toml
-      - ./backend/uv.lock:/app/uv.lock:ro
+      - ./backend/uv.lock:/app/uv.lock
     environment:
       - ENV=development
       - DEBUG=true
