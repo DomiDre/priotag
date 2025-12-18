@@ -45,7 +45,7 @@
 		<div class="flex items-center justify-between gap-4">
 			<div class="flex min-w-0 flex-shrink items-center space-x-2">
 				<span class="flex-shrink-0 text-2xl">🔐</span>
-				<h1 class="break-words text-lg font-bold text-gray-800 sm:text-2xl dark:text-white">
+				<h1 class="text-lg font-bold break-words text-gray-800 sm:text-2xl dark:text-white">
 					{$LL.app.title()}
 				</h1>
 			</div>
@@ -87,7 +87,7 @@
 				</div>
 			</div>
 			<h2
-				class="mb-6 break-words text-3xl font-extrabold text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl dark:text-white"
+				class="mb-6 text-3xl font-extrabold break-words text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl dark:text-white"
 			>
 				{$LL.landing.hero.title()}
 			</h2>
