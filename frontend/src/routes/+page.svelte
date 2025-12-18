@@ -42,10 +42,12 @@
 >
 	<!-- Navigation -->
 	<nav class="container mx-auto px-4 py-6">
-		<div class="flex items-center justify-between">
-			<div class="flex items-center space-x-2">
-				<span class="text-2xl">🔐</span>
-				<h1 class="text-2xl font-bold text-gray-800 dark:text-white">{$LL.app.title()}</h1>
+		<div class="flex items-center justify-between gap-4">
+			<div class="flex min-w-0 flex-shrink items-center space-x-2">
+				<span class="flex-shrink-0 text-2xl">🔐</span>
+				<h1 class="text-lg font-bold break-words text-gray-800 sm:text-2xl dark:text-white">
+					{$LL.app.title()}
+				</h1>
 			</div>
 			<div class="flex items-center space-x-4">
 				<LanguageSwitcher />
@@ -84,7 +86,9 @@
 					<span class="text-7xl">📋</span>
 				</div>
 			</div>
-			<h2 class="mb-6 text-5xl font-extrabold text-gray-900 md:text-6xl dark:text-white">
+			<h2
+				class="mb-6 text-3xl font-extrabold break-words text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl dark:text-white"
+			>
 				{$LL.landing.hero.title()}
 			</h2>
 			<p class="mb-10 text-xl text-gray-600 md:text-2xl dark:text-gray-300">
